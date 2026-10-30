@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --theme-bg-base: #12100f;
+  --theme-text-primary: #f5f1ec;
+  --theme-accent: #d8ff59;
+  --theme-editorial: #ff7c8d;
+  --theme-surface: color-mix(in srgb, var(--theme-bg-base) 88%, var(--theme-text-primary) 12%);
+  --theme-text-muted: color-mix(in srgb, var(--theme-text-primary) 62%, var(--theme-bg-base) 38%);
+  --theme-border: color-mix(in srgb, var(--theme-text-primary) 12%, transparent);
+}
+
+[data-theme="light"] {
+  --theme-bg-base: #f5f1ec;
+  --theme-text-primary: #12100f;
+  --theme-accent: #6b8d00;
+  --theme-editorial: #bd3d50;
+}
+
+@layer base {
+  * { @apply box-border; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-theme-base font-sans text-theme-primary antialiased; }
+  a { @apply text-inherit no-underline; }
+  button, input { font: inherit; }
+  ::selection { background: var(--theme-accent); color: var(--theme-bg-base); }
+}
+
+@layer components {
+  .glass-header { background: color-mix(in srgb, var(--theme-bg-base) 82%, transparent); }
+  .ambient-hero { background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--theme-editorial) 24%, transparent), transparent 28%), radial-gradient(circle at 12% 88%, color-mix(in srgb, var(--theme-accent) 16%, transparent), transparent 30%); }
+  .ambient-wordmark { color: color-mix(in srgb, var(--theme-text-primary) 4%, transparent); }
+  .image-fallback { background: linear-gradient(135deg, var(--theme-surface), var(--theme-bg-base)); }
+  .theme-input { background: color-mix(in srgb, var(--theme-bg-base) 72%, var(--theme-text-primary) 28%); }
+}
