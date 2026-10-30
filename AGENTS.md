@@ -10,9 +10,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## PawnPawn project rules
 
-Read [`documentation/AGENTS.md`](./documentation/AGENTS.md) and
-[`documentation/AI_CONTEXT.md`](./documentation/AI_CONTEXT.md) before changing
-buyer-facing behavior or Medusa API usage.
+Read [`documentation/AI_CONTEXT.md`](./documentation/AI_CONTEXT.md) before
+changing buyer-facing behavior or Medusa API usage. Read
+[`documentation/API.md`](./documentation/API.md) before changing a data
+contract.
 
 ## Product design brief
 
@@ -52,3 +53,52 @@ navigation, metadata, labels, forms, and technical detail. Prefer thin
 hairlines (`border-white/10`), subtle radial warm/lime ambient hero light, and
 generous gallery spacing (`py-24`, `space-y-12`) over heavy borders or dense
 cards.
+
+## Documentation audit is required
+
+- Before implementation, run `rg --files documentation` and read the relevant
+  guidance in `documentation/AI_CONTEXT.md`, `documentation/API.md`,
+  `documentation/BUYER_UI_UX.md`, and `documentation/LOCAL_DEPLOYMENT.md`.
+- After implementation, compare the changed code with those documents and
+  update every affected API contract, screen/UX behavior, environment
+  variable, runtime instruction, and feature-status entry. Do not finish work
+  while documentation describes stale behavior.
+- Run `git diff --check` after documentation edits and report the audited files
+  in the handoff. Use Conventional Commits: `<type>(buyer): <description>`.
+
+## Architecture and security rules
+
+- Use the App Router. Keep data reads in Server Components where possible;
+  isolate state, event handlers, browser APIs, cart, and checkout in Client
+  Components.
+- Medusa owns Products, Variants, prices, Seller/Listing mapping, availability,
+  inventory, orders, payments, HQ fulfillment, and lineage. Never store these
+  values in browser storage or infer Seller ownership from Product metadata.
+- Discovery must use `GET /store/products` and show only `AVAILABLE` Listings.
+  Sold pieces appear only through the public seller archive contract.
+- Preserve one-of-one commerce: one cart entry per Variant and quantity `1`.
+  Checkout calls `POST /store/purchase` with the publishable key and customer
+  Bearer token; client totals are display-only.
+- Never expose buyer PII, tokens, admin routes, private order data, or internal
+  HQ controls in public pages, logs, URLs, or browser storage. Browser storage
+  may hold only the temporary cart.
+
+## UX and accessibility rules
+
+- Preserve the Modern Luxury Editorial system, responsive layouts, keyboard
+  access, visible focus, real buttons/links, useful loading/error/empty states,
+  and photography-first composition.
+- Keep HQ language accurate: HQ receives, authenticates, certifies, packs, and
+  dispatches; do not promise unsupported delivery timing.
+- Show public lineage as a buyer-safe provenance timeline with opaque buyer
+  identities. Keep product conversion focused: sticky gallery, verified seller,
+  exact price, one-unit availability, HQ assurances, and clear collection
+  action.
+- Keep product specifics, condition/authentication notes, and lineage in
+  accessible disclosure sections. Do not depend on hover for essential content.
+
+## Implementation checks
+
+- Use Conventional Commits: `<type>(buyer): <short imperative description>`.
+  Allowed types: `feat`, `fix`, `refactor`, `perf`, `docs`, `chore`.
+- Run `npm run lint`, `npm run build`, and `git diff --check` after changes.

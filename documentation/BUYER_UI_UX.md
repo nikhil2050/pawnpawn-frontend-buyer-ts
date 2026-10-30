@@ -94,6 +94,10 @@ the preference in `localStorage`; it must not alter catalog or cart data.
 - Preserve a generous gallery rhythm equivalent to Tailwind `py-24` and
   `space-y-12`. Do not compress core screen sections into dense marketplace
   layouts.
+- Use the shared `.page-container` (`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`)
+  for every screen and persistent shell container. Use `.elevated-panel` for
+  cards/panels and `.primary-action` for electric-lime CTAs; these preserve
+  surface, border, rounded-xl, and keyboard-focus consistency.
 
 ## 3. Screen: Discovery feed (`/`)
 
@@ -114,7 +118,10 @@ Sticky header
    └─ Featured seller link (first available item)
 
 Available now
+├─ Modular category/drop cards (up to four, from public native categories)
+├─ HQ guarantees ticker
 └─ “Stories in circulation” + authenticated item count
+   ├─ Sticky search input + category quick-filter pills
    └─ 3-column responsive product card grid
 
 How it works
@@ -125,29 +132,57 @@ How it works
 
 - The hero is intentionally text-first, with soft radial warm/lime color fields
   and an oversized low-contrast `PAWNPAWN` background wordmark.
-- The primary CTA scrolls to the live catalog, avoiding a false separate landing
-  flow.
+- The primary rounded-xl lime CTA scrolls to the live catalog, avoiding a false
+  separate landing flow.
 - If the catalog has at least one item, the hero shows a quiet featured seller
   link to the first product. This link is secondary to the primary catalog CTA.
 - The content must never imply that PawnPawn ships directly from the seller;
   wording always says the item travels through HQ.
 
+### Modular category cards and HQ ticker
+
+Below the hero, the app derives up to four image-led modules from the public
+catalog: `Celebrity closets` plus available native ProductCategory names.
+Selecting one applies that category to the live feed without a route transition
+or second API request. This deliberately avoids a static `Archives` control:
+sold items belong only in the Seller Sold Closet contract.
+
+The horizontal guarantee bar states three buyer promises: authenticated at
+PawnPawn HQ, insured global dispatch, and immutable ownership chain. It is a
+trust cue, not an operational status tracker.
+
 ### Product-card anatomy
 
 ```text
 Image (4:5-ish visual area)
-├─ Upper-left: “Authenticated drop” badge
-└─ Hover: subtle image scale only
+├─ Upper-left: “HQ Verified” badge
+├─ Upper-right: “Sold closet” when rendered from seller history
+└─ Hover: image scales to 105%; card receives a restrained lime border,
+   both over 300ms with a cubic-bezier transition
 
-Seller link in lime: ✓ Store name
 Product title in serif
-Condition / “One of one” metadata
-Price
+Seller handle in lime: @handle, linked to seller profile
+Bold serif price + right-aligned uppercase condition pill
 ```
 
 The entire image and product title link to `/products/[id]`. The seller line
 links to `/sellers/[handle]`. Cards should never show admin review states,
 inventory quantities, raw IDs, or SKU values.
+
+### Search and category quick bar
+
+The catalog controls sit directly below the hero and remain sticky below the
+global header while a buyer scans the grid. The input searches the already
+loaded public catalog in real time by Product title/handle, drop Collection
+title, and Seller handle or store name (the public designer/celebrity label).
+Category pills are generated from Medusa `ProductCategory` names in the
+response, beginning with `All Drops`; they are horizontally scrollable on
+narrow screens. A live result count confirms the current filter result.
+
+Filtering is an in-browser discovery refinement only. `GET /store/products`
+remains the authority that excludes non-`AVAILABLE` Listings. If no pieces
+match the search/category combination, show a composed fallback and expose
+`Reset discovery filters` to clear both controls.
 
 ### Empty and degraded state
 
@@ -183,6 +218,9 @@ Seller hero
    Bio
    Public social handles (if supplied)
 
+The seller hero uses the same elevated panel, border, rounded-xl, and
+typography system as homepage cards and the Product Buy Box.
+
 Available drops
 └─ Standard product grid
 
@@ -203,8 +241,8 @@ Sold Closet
 
 | Section | Source | Card behavior |
 |---|---|---|
-| Available drops | `products` | “Authenticated drop” badge; may open Product and enter cart |
-| Sold Closet | `archive` | “Sold archive” badge; historical display only |
+| Available drops | `products` | “HQ verified” badge; may open Product and enter cart |
+| Sold Closet | `archive` | “HQ verified” and “Sold closet” badges; historical display only |
 
 The Sold Closet demonstrates social proof and a seller’s item history. It is not
 a repurchase catalogue. The current public Product detail route resolves only
@@ -231,7 +269,7 @@ is unique, what it costs, and how authenticity is preserved.
 ### Layout
 
 ```text
-Desktop, two columns
+Desktop, 60/40 split
 ├─ Left: sticky gallery
 │  ├─ Vertical thumbnail switcher
 │  └─ High-resolution 4:5 primary image / fallback visual
@@ -239,8 +277,10 @@ Desktop, two columns
    ├─ Verified Celebrity Seller badge + store link
    ├─ Title, exact price, condition, and one-unit availability
    ├─ HQ assurance checklist
-   ├─ Full-width collection action
-   └─ Expandable specifics, condition, and ownership-chain sections
+   └─ Full-width collection action
+
+Below the split: Item dossier
+└─ Expandable specifications/material notes, condition, and ownership-chain sections
 ```
 
 On mobile, thumbnails become a horizontal strip and the Buy Box follows the
@@ -251,14 +291,14 @@ easy to reach.
 
 | Element | UX behavior |
 |---|---|
-| Container | Distinct matte `bg-theme-surface`, `border-theme-border`, `rounded-xl`, padded card that concentrates the purchase decision |
+| Container | Distinct matte `bg-theme-surface`, `border-theme-border`, `rounded-xl`, `shadow-2xl`, padded card that stays sticky beneath the header on desktop |
 | Seller trust | `Verified Celebrity Seller` badge plus lime store link; opens seller profile |
 | Title | Large serif hierarchy inside the Buy Box |
 | Price | Uses the first Variant’s Medusa price; formatted according to currency |
 | Condition | Bordered condition pill from Listing/item metadata |
-| Stock | `In stock at PawnPawn HQ — 1 unit available` only when the first Variant is purchasable; otherwise sold state |
-| Value checklist | Authenticated by PawnPawn HQ, insured dispatch, verified ownership chain |
-| Add to collection | Full-width electric-lime `rounded-lg` action; adds the first/only Variant to cart |
+| Stock | `Verified 1-of-1 Item in PawnPawn HQ` when the first Variant is purchasable; otherwise sold state |
+| Value checklist | Authenticated & Certified by PawnPawn HQ, Insured Global Dispatch, Immutable Ownership Chain (Lineage Verified) |
+| Add to collection | Full-width electric-lime `rounded-xl` action; adds the first/only Variant to cart |
 | Added state | Primary label confirms the add and exposes full-width secure checkout action |
 
 The backend’s unique-item policy permits one variant value per option. The UI
@@ -277,12 +317,12 @@ buyer reads the Buy Box.
 
 ### Information density disclosures
 
-Native `<details>` disclosures keep secondary content close to the action while
-avoiding a long, low-conversion detail page:
+Native `<details>` disclosures sit in a separate below-the-fold Item dossier.
+This preserves Buy Box focus while avoiding a long, low-conversion detail page:
 
 | Disclosure | Open state | Content |
 |---|---|---|
-| Product specifics | Open by default | Description plus ProductOption rows |
+| Specifications & material notes | Open by default | Description plus ProductOption rows, including material when supplied |
 | Condition & authentication | Closed | Condition value and the HQ review/certificate explanation |
 | Ownership chain | Closed | Buyer-safe vertical lineage timeline |
 
@@ -322,7 +362,7 @@ the HQ intermediary flow.
   `localStorage` after hydration.
 - The cart de-duplicates by `variant.id`; quantity controls do not exist.
 - Each cart row presents seller/store name, product title, display price, and a
-  remove action.
+  remove action inside the shared elevated-panel treatment.
 - Local cart state is convenience data only. It is never an inventory claim.
   Backend stock/Listing checks at checkout decide whether purchase succeeds.
 
@@ -340,6 +380,10 @@ HQ promise: held → received → authenticated/certified → dispatched
 Buyer session token field (MVP demo only)
 Secure purchase CTA
 ```
+
+The checkout form is an elevated panel. Its token input uses a lime focus border
+and the purchase button uses the same rounded-xl primary action as discovery
+and Product detail.
 
 The display total is derived from Variant prices in the local cart. It is not
 authoritative. Do not add delivery fees, taxes, discounts, or a currency switch
@@ -418,6 +462,7 @@ the backend Listing to `SOLD`, inventory to zero, and creates HQ/lineage data.
 | `lib/medusa.ts` | API request shape, cache behavior, image and price helpers | Checking [API.md](./API.md) and backend contract |
 | `components/cart-provider.tsx` | Temporary cart persistence/hydration | Preserving no-token/no-price/no-stock boundary |
 | `components/checkout-client.tsx` | Authenticated purchase UI | Preserving token privacy and backend error behavior |
+| `components/discovery-catalog.tsx` | Category modules, trust ticker, instant search and feed | Preserving public `AVAILABLE` boundary |
 | `components/product-card.tsx` | Shared live/archive visual card | Retaining distinct archive treatment |
 | `components/lineage-timeline.tsx` | Buyer-safe provenance display | Preserving buyer privacy |
 | `app/globals.css` | Shared visual and responsive system | Checking all four screens at desktop and mobile sizes |
@@ -425,7 +470,8 @@ the backend Listing to `SOLD`, inventory to zero, and creates HQ/lineage data.
 ## 10. Deliberate MVP exclusions
 
 - Buyer sign-up/sign-in and durable session UI
-- Search, category, collection, and option filter controls
+- Backend-powered collection and option facets beyond the current client-side
+  title/designer/category discovery controls
 - Variant choice UI for multi-variant products
 - Real payments, taxes, shipping address collection, shipping estimates
 - Orders page, tracking page, certificate download, notifications

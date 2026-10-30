@@ -26,7 +26,7 @@ export function Header() {
     window.localStorage.setItem("pawnpawn-theme", next ? "light" : "dark")
   }
 
-  return <header className="glass-header sticky top-0 z-50 flex h-20 items-center justify-between border-b border-theme-border px-6 backdrop-blur-xl md:px-[5vw]">
+  return <header className="glass-header sticky top-0 z-50 border-b border-theme-border backdrop-blur-xl"><div className="page-container flex h-20 items-center justify-between">
     <Link href="/" className="font-display text-3xl tracking-[-0.07em]" aria-label="PawnPawn home">pawn<span className="text-theme-accent">pawn</span></Link>
     <nav aria-label="Primary" className="flex items-center gap-5 text-xs text-theme-muted md:gap-7">
       <Link className="hidden transition-colors hover:text-theme-primary sm:block" href="/#drops">Drops</Link>
@@ -36,5 +36,5 @@ export function Header() {
       </button>
       <Link href="/checkout" className="flex items-center gap-2 text-theme-primary">Cart <span aria-label={`${items.length} items`} className="grid size-5 place-items-center rounded-full bg-theme-accent text-[10px] font-bold text-theme-base">{items.length}</span></Link>
     </nav>
-  </header>
+  </div></header>
 }

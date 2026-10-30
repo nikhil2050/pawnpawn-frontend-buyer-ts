@@ -74,6 +74,21 @@ The header theme-toggle simulation changes only these variables through
 `data-theme="light"` and persists the presentation preference under
 `pawnpawn-theme`. It never changes the marketplace data model or API behavior.
 
+`app/globals.css` also defines the shared visual primitives: `.page-container`
+(`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`), `.elevated-panel` (surface,
+theme-border, rounded-xl), and `.primary-action` (lime, rounded-xl, focus
+outline). Use them for every page, persistent shell element, card, and primary
+action rather than duplicating visual values.
+
+### Global shell
+
+- `Header` is sticky, links to Drops/How it works and Checkout, and exposes the
+  number of distinct local-cart Variants. Its presentation-only theme toggle is
+  client-side; marketplace data remains server-owned.
+- Pages fetch catalog/profile/lineage data as Server Components. Small client
+  boundaries own interactive state only: search filters, gallery selection,
+  cart count, add-to-cart state, and checkout form state.
+
 ## 3. Code map
 
 ```text
@@ -87,11 +102,14 @@ app/
   products/[id]/loading.tsx   Product loading skeleton
   sellers/[handle]/loading.tsx Seller loading skeleton
 components/
+  add-to-cart.tsx             One-Variant collection action and checkout link
   cart-provider.tsx           Browser-only temporary cart
   checkout-client.tsx         Protected checkout interaction
+  discovery-catalog.tsx       Client search and native-category filter controls
+  header.tsx                  Sticky navigation, theme simulation, cart count
   listing-image.tsx           External image failure fallback
   product-gallery.tsx         Client-side thumbnail gallery selection
-  product-accordions.tsx      Accessible Buy Box disclosures and lineage
+  product-accordions.tsx      Accessible below-the-fold item dossier and lineage
   product-card.tsx            Discovery/profile product card
   lineage-timeline.tsx        Public provenance timeline
 lib/
@@ -111,7 +129,21 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 
 - Calls `GET /store/products?limit=48` with `x-publishable-api-key`.
 - The backend returns only published Products with `AVAILABLE` Listings.
-- Cards show image, title, price, seller, condition, and authenticity badge.
+- Cards show a `HQ Verified` overlay, title, lime linked Seller handle, bold
+  serif price, and a right-aligned uppercase condition pill. Image and accent
+  border transitions use a 300ms cubic-bezier curve without obscuring photography.
+- The homepage begins with the editorial hero, followed by data-driven category
+  modules that set the active native category, an HQ guarantee ticker, and the
+  live-drop feed. Category modules use only public catalog data; there is no
+  invented archive or hidden inventory view.
+- A sticky client-side search filters this already public catalog by Product
+  title/handle, drop Collection title, and Seller handle/store name (the public
+  designer/celebrity label). Native ProductCategory pills are derived from the
+  returned items (`All Drops` plus returned names), so no unsupported static
+  category or archive filter is invented. A live result count and resettable
+  zero-result state update without requesting hidden or sold listings.
+- Sold inventory is deliberately absent from `/`; the Sold Closet exists only
+  on the relevant public seller profile.
 - Backend failure renders an intentional empty-state prompt rather than breaking
   the pitch UI.
 
@@ -119,18 +151,29 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 
 - Calls `GET /store/sellers/:handle`.
 - Displays `seller` profile, public bio/social information, active `products`,
-  and historical `archive` items with the Sold Closet treatment.
+  and historical `archive` items with the Sold Closet treatment. Cards keep the
+  HQ-verified signal and add a Sold Closet badge for historical pieces.
+- The profile header is an elevated panel and both live/archive grids reuse the
+  same ProductCard surface, spacing, typography, and hover behavior as discovery.
+- The verification treatment is visual in the MVP. A later revision may make
+  it conditional on `seller.verification_status`.
 - A missing or inactive seller renders Next.js `notFound()`.
 
 ### 4.3 Product `/products/[id]`
 
 - Resolves the public Product from the available discovery catalog, then calls
   `GET /store/products/:id/lineage`.
-- Shows the first Variant’s price, ProductOption values, seller, condition,
-  availability, HQ assurances, and public lineage timeline in a high-density
-  matte Buy Box. Its desktop gallery is sticky and supports thumbnail switching.
-- Product specifics, condition/authentication notes, and the ownership chain
-  render as expandable native disclosures in the Buy Box.
+- Collects unique Product thumbnail/image URLs and renders a sticky desktop
+  gallery with client-side thumbnail switching; broken images use the branded
+  fallback. On small screens thumbnails become horizontal and the gallery stops
+  being sticky.
+- Uses a 60/40 desktop split: a sticky thumbnail gallery on the left and an
+  elevated sticky Buy Box on the right. The Buy Box contains the verified Seller
+  link, currency-formatted first-Variant price, uppercase condition tag,
+  `Verified 1-of-1 Item in PawnPawn HQ` state, security checklist, and
+  electric-lime `Add to collection` action for the first/only Variant.
+- A below-the-fold Item dossier contains expandable specifications/material
+  notes, condition/authentication detail, and the buyer-safe ownership chain.
 - Buyers can add one Variant to the local cart. A sold Listing cannot be added.
 - Current limitation: a sold Product without an available catalog entry cannot
   open this public product route. Seller Sold Closet cards may link to it, so a
@@ -143,8 +186,12 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 - Requires a customer JWT entered for the local demo; it is held only React
   state, never persisted.
 - On `201`, renders the secure-payment/HQ authentication success journey.
+- The local cart de-duplicates by Variant ID and has no quantity controls. Its
+  displayed total is informational; the purchase endpoint remains authoritative.
 - Server decides currency, price, availability, reservation, inventory, and
   resulting order. Client total is display-only.
+- Checkout rows and the payment form use elevated panels; token input focus and
+  action controls use the same rounded-xl and lime focus/CTA treatment as Product.
 
 ## 5. Marketplace lifecycle shown to buyers
 
@@ -176,14 +223,20 @@ specification.
 ## 7. Feature status
 
 - [x] Discovery feed with dark premium responsive visual design.
+- [x] Modular homepage category cards, HQ guarantee ticker, and live-drop feed.
 - [x] Live Medusa catalog request using the configured publishable key.
+- [x] Sticky real-time catalog search and native ProductCategory quick filters.
+- [x] HQ-verified ProductCard overlays, linked Seller handles, serif price /
+  condition-pill hierarchy, Sold Closet context, and 300ms hover interaction.
 - [x] Seller profile, verification treatment, active inventory, and Sold Closet.
 - [x] Product attributes, Variant price, local one-of-one cart, and lineage UI.
-- [x] Amazon-style conversion Product detail: sticky thumbnail gallery, verified
-  seller Buy Box, one-unit HQ stock state, trust checklist, and disclosures.
+- [x] Amazon-style conversion Product detail: 60/40 sticky gallery/Buy Box,
+  verified Seller, one-of-one HQ state, trust checklist, and below-fold dossier.
 - [x] Protected dummy checkout request and HQ success screen.
 - [x] Tailwind CSS design-system configuration backed by four core CSS theme
   variables, with a persisted header theme-toggle simulation.
+- [x] Shared token-backed page container, elevated panel, and primary action
+  primitives applied to shell, discovery, seller, product, checkout, and loaders.
 - [x] Route loading skeletons and resilient seller/product image fallbacks.
 - [x] Error/empty states when backend content is unavailable.
 - [x] Lint and production build pass on 2026-10-30 (`npm run build` uses
@@ -193,7 +246,7 @@ specification.
 - [ ] Pending — Buyer authentication UI/session management; MVP currently accepts
   an explicitly pasted local customer token for checkout.
 - [ ] Pending — Native public product-detail endpoint for sold archive links.
-- [ ] Planned — Catalog filter controls, search, order tracking, certificates,
+- [ ] Planned — Backend-powered catalog facets, order tracking, certificates,
   saved collections, and payment provider UI.
 
 ## 8. Demo acceptance flow

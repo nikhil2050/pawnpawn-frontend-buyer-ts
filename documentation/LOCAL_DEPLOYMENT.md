@@ -41,7 +41,8 @@ Product is published.
 
 ## 4. Investor demo flow
 
-1. Visit `/` and show the authenticated discovery feed.
+1. Visit `/`, show the modular category cards and HQ guarantee ticker, then use
+   sticky search or a category pill to refine the authenticated discovery feed.
 2. Open a card to show the Product’s condition, single Variant, price, and HQ
    authentication promise.
 3. Open the seller name to demonstrate celebrity store identity, active drops,

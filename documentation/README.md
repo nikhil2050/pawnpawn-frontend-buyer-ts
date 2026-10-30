@@ -10,7 +10,8 @@ ownership, and fulfillment state to the Medusa backend.
 | [API.md](./API.md) | Backend contracts consumed by the buyer UI |
 | [LOCAL_DEPLOYMENT.md](./LOCAL_DEPLOYMENT.md) | Local setup, demo flow, and verification checklist |
 | [BUYER_UI_UX.md](./BUYER_UI_UX.md) | Complete screen-by-screen UI/UX implementation brief |
-| [AGENTS.md](./AGENTS.md) | Instructions for contributors and coding agents |
+| [../AGENTS.md](../AGENTS.md) | Instructions for contributors and coding agents |
+| [CLAUDE.md](./CLAUDE.md) | Redirect for Claude-based coding agents |
 
 The current UI uses Tailwind CSS 3 utilities with a CSS-variable-backed theme,
 Next.js 16 webpack production builds, route loading skeletons, and resilient

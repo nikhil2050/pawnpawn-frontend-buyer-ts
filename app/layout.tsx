@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><body><CartProvider><Header /><main className="min-h-[calc(100vh-132px)]">{children}</main><footer className="border-t border-theme-border px-6 py-7 text-xs text-theme-muted md:px-[5vw]">PawnPawn · verified stories, passed forward.</footer></CartProvider></body></html>
+  return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><body><CartProvider><Header /><main className="min-h-[calc(100vh-132px)]">{children}</main><footer className="border-t border-theme-border py-7 text-xs text-theme-muted"><div className="page-container">PawnPawn · verified stories, passed forward.</div></footer></CartProvider></body></html>
 }

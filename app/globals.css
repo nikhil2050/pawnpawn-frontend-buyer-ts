@@ -29,6 +29,9 @@
 }
 
 @layer components {
+  .page-container { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+  .elevated-panel { @apply rounded-xl border border-theme-border bg-theme-surface; }
+  .primary-action { @apply inline-flex min-h-14 items-center justify-center rounded-xl bg-theme-accent px-8 py-4 text-sm font-semibold text-theme-base transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-accent; }
   .glass-header { background: color-mix(in srgb, var(--theme-bg-base) 82%, transparent); }
   .ambient-hero { background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--theme-editorial) 24%, transparent), transparent 28%), radial-gradient(circle at 12% 88%, color-mix(in srgb, var(--theme-accent) 16%, transparent), transparent 30%); }
   .ambient-wordmark { color: color-mix(in srgb, var(--theme-text-primary) 4%, transparent); }
