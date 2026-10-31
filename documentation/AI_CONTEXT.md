@@ -1,6 +1,6 @@
 # PawnPawn Buyer App Context
 
-> Token-optimized context for contributors and agents. Updated: 2026-10-30.
+> Token-optimized context for contributors and agents. Updated: 2026-10-31.
 
 ## 1. Purpose and boundaries
 
@@ -207,6 +207,72 @@ The app uses only public, buyer-safe data. Buyer identity, payment details,
 internal order line IDs, Admin feedback, and internal HQ state controls do not
 appear in public screens.
 
+## Actionable UI inventory
+
+Keep this inventory updated whenever a control is added, removed, renamed, or
+its behavior changes. “API” means a network request; “local” means navigation,
+React state, or the temporary cart. No public buyer control exposes Admin/HQ
+operations or buyer identity data.
+
+### Global header
+
+| Control | Action | Effect |
+|---|---|---|
+| `pawnpawn` wordmark | Link to `/` | Returns to Discovery (local). |
+| `Drops` | Link to `/#drops` | Jumps to the live drop feed (local anchor). |
+| `How it works` | Link to `/#how-it-works` | Jumps to the HQ trust/value section (local anchor). |
+| Theme toggle | Button | Changes presentation-only theme variables and stores the preference under `pawnpawn-theme`; it does not alter marketplace data. |
+| `Cart` + count | Link to `/checkout` | Opens the local one-of-one cart and checkout view. |
+
+### Discovery `/`
+
+| Control | Action | Effect |
+|---|---|---|
+| Featured seller/drop link | Link to `/products/:id` | Opens the featured Product detail page (local). |
+| Category module cards | Buttons | Set the active native ProductCategory filter in the client catalog (local). |
+| Search field | Input | Filters already loaded `AVAILABLE` products by title, collection, category, seller handle, or store name (local; no hidden catalog request). |
+| Category pills | Buttons with pressed state | Filter the public catalog by returned native category names (local). |
+| `Reset discovery filters` | Button | Clears search and category state, restoring the loaded live catalog (local). |
+| Product card image/title | Link to `/products/:id` | Opens the Product detail and Buy Box (local). |
+| Product card seller handle | Link to `/sellers/:handle` | Opens the public celebrity profile (local). |
+
+### Seller profile `/sellers/:handle`
+
+| Control | Action | Effect |
+|---|---|---|
+| Active drop card image/title | Link to `/products/:id` | Opens a currently available product (local). |
+| Seller handle on a card | Link to `/sellers/:handle` | Reopens the seller profile (local). |
+| Sold Closet card | Link to `/products/:id` when available | Opens the public product route if the product is still returned by the available catalog; sold-only product detail is a documented backend limitation. |
+| Sold Closet / archive labels | Read-only status | Explain historical ownership without exposing buyer identity or internal HQ controls. |
+
+### Product detail `/products/:id`
+
+| Control | Action | Effect |
+|---|---|---|
+| Seller name/handle | Link to `/sellers/:handle` | Opens the public Seller profile (local). |
+| Gallery thumbnails | Buttons | Switch the active product image; broken images use the branded fallback (local). |
+| Product specifics, condition, authentication, ownership chain | Disclosure/accordion controls | Expand buyer-safe details and the public lineage timeline (local). |
+| `Add to collection` | Button | Adds the first/only available Variant at quantity `1` to temporary cart state; sold/unavailable items cannot be added. |
+| `Continue to secure checkout` | Link to `/checkout` | Opens checkout after a successful add-to-cart action (local). |
+
+### Checkout `/checkout`
+
+| Control | Action | Effect |
+|---|---|---|
+| `Discover drops` | Link to `/` | Returns to Discovery when the cart is empty (local). |
+| `Remove` | Button | Removes that Variant from the temporary cart (local). |
+| Buyer session token | Input | Holds a local-demo Customer JWT in React state only; it is never persisted. |
+| `Secure purchase` | Form submit | Sends `{ variant_id, quantity: 1 }` per cart item to `POST /store/purchase` with the publishable key and Bearer token. The server owns price, stock, order, payment placeholder, HQ fulfillment, and lineage. |
+| `Explore more drops` | Link after success | Returns to Discovery after the HQ processing confirmation (local). |
+
+### Control implementation rule
+
+Do not add a buyer control that implies availability, payment capture,
+ownership, delivery timing, certificate status, or Admin/HQ authority unless the
+matching public Store API supports it. Add each new control to this inventory
+and state whether its effect is API-backed or local in the same documentation
+change.
+
 ## 6. Backend contracts used
 
 | Route | Purpose | Auth |
@@ -274,3 +340,19 @@ feat(buyer): add celebrity storefront and provenance timeline
 fix(buyer): preserve cart after client hydration
 docs(buyer): document checkout demo flow
 ```
+
+## 10. Test requirement for every change
+
+Every code modification or addition requires relevant test cases. Prefer
+focused component, catalog, cart, or API-client tests for changed behavior,
+then run:
+
+```bash
+npm run lint
+npm run build
+git diff --check
+```
+
+If no test runner exists for a changed surface, record the missing harness and
+the exact manual validation steps in the affected documentation before
+handoff. Documentation-only changes still require `git diff --check`.

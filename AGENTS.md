@@ -102,3 +102,12 @@ cards.
 - Use Conventional Commits: `<type>(buyer): <short imperative description>`.
   Allowed types: `feat`, `fix`, `refactor`, `perf`, `docs`, `chore`.
 - Run `npm run lint`, `npm run build`, and `git diff --check` after changes.
+
+Every buyer UI modification or addition must update
+`documentation/AI_CONTEXT.md`. Keep its Actionable UI Inventory current with
+each button, link, tab, toggle, form submission, modal action, and the API or
+local-state effect it produces.
+Every code modification or addition must also add or update relevant test cases.
+Run focused tests and the full validation commands before handoff; if the
+repository lacks a test harness for the changed surface, document the gap and
+add the narrowest practical validation script or checklist.
