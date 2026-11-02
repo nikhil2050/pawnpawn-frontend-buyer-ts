@@ -43,13 +43,17 @@ Product is published.
 
 1. Visit `/`, show the modular category cards and HQ guarantee ticker, then use
    sticky search or a category pill to refine the authenticated discovery feed.
-2. Open a card to show the Product’s condition, single Variant, price, and HQ
+2. Use the header region selector to show **Europe · EUR** (default) or
+   **India · INR**. The page stores the native Medusa Region ID and reloads so
+   the backend returns only items with a positive calculated price for that
+   region; carts do not cross regions.
+3. Open a card to show the Product’s condition, single Variant, localized price, and HQ
    authentication promise.
-3. Open the seller name to demonstrate celebrity store identity, active drops,
+4. Open the seller name to demonstrate celebrity store identity, active drops,
    and Sold Closet archive.
-4. Return to the product and discuss the Ownership Chain timeline.
-5. Add the product to Cart, then open `/checkout`.
-6. Obtain a local customer JWT:
+5. Return to the product and discuss the Ownership Chain timeline.
+6. Add the product to Cart, then open `/checkout`.
+7. Obtain a local customer JWT:
 
    ```bash
    curl -s -X POST http://localhost:9000/auth/customer/emailpass \
@@ -57,16 +61,20 @@ Product is published.
      -d '{"email":"sarah.johnson@gmail.com","password":"buyer1234"}'
    ```
 
-7. Select **Auto-login with Demo Customer Token**. The development-only Next
+8. Select **Auto-login with Demo Customer Token**. The development-only Next
    route acquires the configured server-side demo Customer token; Advanced
    manual token entry remains available for a different local Customer session.
-8. If `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set, enter Stripe test card
-   details to validate the Stripe Elements surface. This does not charge a card:
-   the backend currently has no PaymentIntent endpoint.
-9. Select **Pay <total> & Secure Drop**.
-8. Show the successful PawnPawn HQ handover sequence.
+9. Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Buyer app and
+   `STRIPE_SECRET_KEY` in the backend to matching Stripe **test** keys. Then
+   enter `4242 4242 4242 4242`, any future expiry, any CVC, and a postal code:
+   Stripe creates a real test PaymentIntent and the backend finalizes only a
+   verified `succeeded` Intent.
+10. Select **Pay <EUR/INR total> & Secure Drop**. If the item has no local
+    price, checkout correctly shows **Unavailable for Purchase** and does not
+    send a payment request.
+11. Show the successful PawnPawn HQ handover sequence.
 
-The dummy checkout mutates the local backend: it makes the Listing `SOLD` and
+The Stripe test checkout mutates the local backend only after successful payment: it makes the Listing `SOLD` and
 sets inventory to zero. Use a known test Listing or re-seed/reset local data
 between demo runs.
 
@@ -91,6 +99,10 @@ hard-code replacement colors in page or component files.
 - [ ] Seller profile shows public profile and active inventory.
 - [ ] Product attributes and lineage timeline render without buyer PII.
 - [ ] Cart allows each Variant only once and survives a client refresh.
+- [ ] Switching EU/India reloads a regional catalog, changes price formatting,
+  and uses a separate cart.
+- [ ] Missing or zero regional prices show `Unavailable` and cannot submit
+  checkout or Stripe validation.
 - [ ] Checkout without a Demo Session/token explains the requirement.
 - [ ] Demo Session obtains a fresh local Customer token and checkout returns the HQ success page.
 - [ ] Stripe test card validation works when a valid publishable key is configured; offline preview collects no card data when absent.

@@ -198,8 +198,10 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 
 ### 4.4 Checkout `/checkout`
 
-- Reads local cart entries from `localStorage` after hydration.
-- Sends only `{ variant_id, quantity: 1 }` per item to `POST /store/purchase`.
+- Region state detects an explicit `pawn_region_id` cookie/session selection first, then `cf-ipcountry` (`IN` selects India), and defaults to Europe. The header selector persists the native Medusa EU or India Region ID and reloads Server Components with that explicit cookie.
+- Catalog, Seller profile, and Product detail calls include native `region_id`; Medusa derives currency from it. Carts are isolated in `localStorage` by region.
+- `formatRegionalPrice` uses `en-EU` EUR or `en-IN` INR grouping and returns `Unavailable` for a missing/zero price.
+- Requests a server-priced Stripe PaymentIntent through `POST /store/payment-intent`, confirms its `client_secret` with Stripe Card Elements, then sends its `payment_intent_id` to `POST /store/purchase`.
 - Uses Stripe Card Elements for Card Number, Expiry, CVC, and postal code when
   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is configured. The Element theme uses the
   dark gallery colors; missing keys show a no-card-data offline preview.
@@ -207,14 +209,20 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
   which obtains a fresh local buyer token server-side through
   `/auth/customer/emailpass`. Demo credentials never reach the browser; tokens
   are held only in React state and are never persisted.
-- Current Stripe integration validates card input by creating a PaymentMethod.
-  It cannot capture a payment because the backend has no PaymentIntent/client
-  secret endpoint. The dummy backend purchase remains the authoritative demo
-  payment state until that endpoint and webhook reconciliation exist.
+- The browser never sends a price or raw card data to Medusa. The backend resolves
+  the native Medusa Region price, creates the PaymentIntent, and verifies its
+  `succeeded` status, amount, currency, buyer, Region, and item fingerprint
+  before it creates an order or changes marketplace state.
+- In local development, missing Stripe keys activate a clearly labelled Demo
+  payment mode that simulates success without card collection or Stripe calls.
+  Production still requires both Stripe keys.
 - On `201`, renders the secure-payment/HQ authentication success journey.
 - Clears the temporary cart only after `POST /store/purchase` succeeds.
 - The local cart de-duplicates by Variant ID and has no quantity controls. Its
   displayed total is informational; the purchase endpoint remains authoritative.
+- Every cart Variant must have a non-zero calculated price in the active region.
+  Otherwise the payment surface and submit action are disabled with `Item
+  Unavailable in Region`; the UI never sends a zero-value purchase request.
 - Server decides currency, price, availability, reservation, inventory, and
   resulting order. Client total is display-only.
 - Checkout rows and the payment form use elevated panels; token input focus and
@@ -249,6 +257,7 @@ operations or buyer identity data.
 | `Drops` | Link to `/#drops` | Jumps to the live drop feed (local anchor). |
 | `How it works` | Link to `/#how-it-works` | Jumps to the HQ trust/value section (local anchor). |
 | Theme toggle | Button | Changes presentation-only theme variables and stores the preference under `pawnpawn-theme`; it does not alter marketplace data. |
+| Region selector | Select | Stores the selected native EU or India Medusa Region ID as `pawn_region_id`, reloads the server-rendered catalog, and scopes the cart to that region. |
 | `Cart` + count | Link to `/checkout` | Opens the local one-of-one cart and checkout view. |
 
 ### Discovery `/`
@@ -279,7 +288,7 @@ operations or buyer identity data.
 | Seller name/handle | Link to `/sellers/:handle` | Opens the public Seller profile (local). |
 | Gallery thumbnails | Buttons | Switch the active product image; broken images use the branded fallback (local). |
 | Product specifics, condition, authentication, ownership chain | Disclosure/accordion controls | Expand buyer-safe details and the public lineage timeline (local). |
-| `Add to collection` | Button | Adds the first/only available Variant at quantity `1` to temporary cart state; sold/unavailable items cannot be added. |
+| `Add to collection` | Button | Adds the first/only available Variant with a non-zero calculated active-region price at quantity `1`; sold/unavailable items cannot be added. |
 | `Continue to secure checkout` | Link to `/checkout` | Opens checkout after a successful add-to-cart action (local). |
 
 ### Checkout `/checkout`
@@ -288,11 +297,11 @@ operations or buyer identity data.
 |---|---|---|
 | `Discover drops` | Link to `/` | Returns to Discovery when the cart is empty (local). |
 | `Remove` | Button | Removes that Variant from the temporary cart (local). |
-| Stripe card fields | Hosted Stripe Elements | Collect Card Number, Expiry, and CVC only when a Stripe publishable key exists; browser validation creates a PaymentMethod but does not capture payment. |
-| Postal code | Input | Supplies postal code only to Stripe browser validation; it is not persisted or sent to Medusa. |
+| Stripe card fields | Hosted Stripe Elements | Collect Card Number, Expiry, and CVC only when Stripe is configured. `confirmCardPayment` confirms the server-created PaymentIntent; Medusa never receives raw card data. |
+| Postal code | Input | Supplies postal code only to Stripe during confirmation; it is not persisted by Medusa. |
 | `Auto-login with Demo Customer Token` | Button | Calls development-only `POST /api/demo-session`; it obtains a fresh Customer JWT server-side, holds it in React state, and never persists it. |
 | Advanced manual token | Disclosure/input | Allows a live local Medusa Customer token in React state for API testing. |
-| `Pay <total> & Secure Drop` | Form submit | Validates Stripe Elements when configured, then sends `{ variant_id, quantity: 1 }` per cart item to `POST /store/purchase`. On success, clears the cart and shows HQ confirmation. |
+| `Pay <total> & Secure Drop` | Form submit | Requests a server-priced PaymentIntent, calls Stripe `confirmCardPayment`, then submits `{ items, region_id, payment_intent_id }` to `POST /store/purchase`. It is disabled for a missing/zero total or missing Stripe configuration. On success, clears the cart and shows HQ confirmation. |
 | `Explore more drops` | Link after success | Returns to Discovery after the HQ processing confirmation (local). |
 
 ### Control implementation rule
@@ -305,11 +314,14 @@ change.
 
 ## 6. Backend contracts used
 
+For the complete checkout sequence, see [CHECKOUT_WORKFLOW.md](./CHECKOUT_WORKFLOW.md).
+
 | Route | Purpose | Auth |
 |---|---|---|
 | `GET /store/products` | `AVAILABLE` catalog, native category/collection/option filters | Publishable key |
 | `GET /store/sellers/:handle` | Public seller, active drops, sold archive | Publishable key |
 | `GET /store/products/:id/lineage` | Public ownership/provenance history | Publishable key |
+| `POST /store/payment-intent` | Server-priced Stripe PaymentIntent | Publishable key + customer Bearer token |
 | `POST /store/purchase` | MVP one-of-one checkout | Publishable key + customer Bearer token |
 
 See [API.md](./API.md) for payload expectations and errors.
@@ -328,8 +340,10 @@ specification.
 - [x] Product attributes, Variant price, local one-of-one cart, and lineage UI.
 - [x] Amazon-style conversion Product detail: 60/40 sticky gallery/Buy Box,
   verified Seller, one-of-one HQ state, trust checklist, and below-fold dossier.
-- [x] Stripe Elements card-validation surface, offline-safe payment preview,
-  Demo Session Manager, protected dummy purchase request, and HQ success screen.
+- [x] Server-priced Stripe PaymentIntent checkout, Stripe confirmation, Demo
+  Session Manager, protected purchase finalization, and HQ success screen.
+- [x] Checkout contract test verifies Intent creation, card confirmation, final
+  `payment_intent_id` submission, and post-success cart clearing.
 - [x] Tailwind CSS design-system configuration backed by four core CSS theme
   variables, with a persisted header theme-toggle simulation.
 - [x] Shared token-backed page container, elevated panel, and primary action
@@ -340,8 +354,8 @@ specification.
   validated Next.js webpack mode).
 - [ ] Pending — Backend live smoke test: start Medusa, approve a seller Listing,
   and run the complete browse → cart → checkout journey with a seeded buyer.
-- [ ] Pending — Production Customer authentication/session management and a
-  server-side Stripe PaymentIntent plus webhook reconciliation for live charges.
+- [ ] Pending — Production Customer authentication/session management, durable
+  inventory reservation/outbox handling, and Stripe webhook reconciliation.
 - [ ] Pending — Native public product-detail endpoint for sold archive links.
 - [ ] Planned — Backend-powered catalog facets, order tracking, certificates,
   saved collections, and payment provider UI.

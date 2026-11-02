@@ -4,10 +4,16 @@ import { AddToCart } from "@/components/add-to-cart"
 import { getLineage, getProduct, imageFor, priceFor } from "@/lib/medusa"
 import { ProductAccordions } from "@/components/product-accordions"
 import { ProductGallery } from "@/components/product-gallery"
+import { regionFromCountry, regionIdFor } from "@/lib/regions"
+import { cookies, headers } from "next/headers"
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const product = await getProduct(id)
+  const cookieStore = await cookies()
+  const requestHeaders = await headers()
+  const selected = cookieStore.get("pawn_region_id")?.value
+  const regionId = selected ? regionIdFor(selected) : regionFromCountry(requestHeaders.get("cf-ipcountry"))
+  const product = await getProduct(id, regionId)
   if (!product) notFound()
 
   const lineage = await getLineage(id)
@@ -19,7 +25,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     imageFor(product),
   ].filter((image): image is string => Boolean(image))))
   const condition = product.marketplace_listing?.item_condition ?? product.metadata?.item_condition ?? "One of one"
-  const available = product.marketplace_listing?.listing_status !== "SOLD" && Boolean(variant)
+  const available = product.marketplace_listing?.listing_status !== "SOLD" && Boolean(variant?.calculated_price?.calculated_amount && variant.calculated_price.calculated_amount > 0)
 
   return <section className="page-container py-10 md:py-14">
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">

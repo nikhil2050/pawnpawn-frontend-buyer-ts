@@ -17,6 +17,7 @@ Returns only Medusa Products whose custom Listing has
 | `category_id` | Native ProductCategory filtering |
 | `collection_id` | Native ProductCollection/drop filtering |
 | `options` | Native options, for example `Size:M` or `Condition:Like New` |
+| `region_id` | Native Medusa Region ID; local EU default is `reg_01M5J0TH63KAP4HJN34ERGDC5N`, India is `reg_01M5SGFGPPFNFBFRJQAAHRRNVA` |
 
 Important response fields consumed by the UI:
 
@@ -29,7 +30,7 @@ Important response fields consumed by the UI:
     thumbnail?: string
     images?: { url: string }[]
     metadata?: { images?: string[]; item_condition?: string }
-    variants: { id: string; prices?: { amount: number; currency_code: string }[] }[]
+    variants: { id: string; calculated_price: { calculated_amount: number; currency_code: "eur" | "inr" } }[]
     options: { title: string; values: { value: string }[] }[]
     seller: { id: string; handle: string; store_name: string; avatar_url?: string }
     marketplace_listing: { id: string; listing_status: "AVAILABLE"; item_condition?: string }
@@ -39,8 +40,9 @@ Important response fields consumed by the UI:
 ```
 
 The buyer must not attempt to include pending, rejected, or sold inventory in
-this feed. Apply display filtering only as a defensive UI step; backend Listing
-filtering is authoritative.
+this feed. The backend also excludes an `AVAILABLE` Product with no strictly
+positive calculated price in the requested Region. Apply display filtering only
+as a defensive UI step; backend Listing and Pricing filtering are authoritative.
 
 ## 2. Public seller profile
 
@@ -85,9 +87,12 @@ or `history`; `lib/medusa.ts` accepts either while the backend contract settles.
 Display seller identity, date, and price only when returned. Never request or
 render private shipping, payment, Admin review, or internal fulfillment fields.
 
-## 4. MVP checkout
+## 4. Stripe checkout
 
-### `POST /store/purchase`
+For the UI-to-backend sequence and troubleshooting the Customer token prompt,
+see [CHECKOUT_WORKFLOW.md](./CHECKOUT_WORKFLOW.md).
+
+### `POST /store/payment-intent`
 
 Headers:
 
@@ -97,44 +102,69 @@ x-publishable-api-key: <publishable key>
 Authorization: Bearer <customer JWT>
 ```
 
-Request:
+Request (the browser never supplies a price):
 
 ```json
 {
-  "items": [{ "variant_id": "variant_...", "quantity": 1 }]
+  "items": [{ "variant_id": "variant_...", "quantity": 1 }],
+  "region_id": "reg_01M5J0TH63KAP4HJN34ERGDC5N",
+  "currency_code": "eur",
+  "idempotency_key": "pawnpawn-browser-attempt-id"
 }
 ```
 
-The backend may select default region and sales channel. Future UI can supply
-`region_id`, `sales_channel_id`, and `shipping_address` after address capture is
-implemented.
+The buyer always supplies native `region_id`. EU/EUR is the default and India
+selects INR. The backend calculates the Medusa Price Set price for that Region,
+rejects missing or zero totals with `400`, and creates a Stripe PaymentIntent
+for its own amount. The idempotency key coalesces intent-creation retries.
 
-On success (`201`):
+Success (`201`):
 
 ```json
 {
-  "order": { "id": "order_...", "display_id": 1 },
-  "payment": { "status": "CAPTURED", "provider": "dummy" },
-  "fulfillment": { "status": "WAITING_FOR_ARRIVAL", "per_line_item": true }
+  "payment": {
+    "payment_intent_id": "pi_...",
+    "client_secret": "pi_..._secret_...",
+    "amount": 120000,
+    "currency_code": "eur"
+  }
 }
 ```
 
-The client must submit only one of each unique Variant. Backend locks the
-Listing, rechecks availability/stock, calculates price, creates the order,
-marks the Listing sold, sets stock to zero, and creates line-item HQ/lineage
-records. Handle `401`, `409`, and validation `400` responses by showing the
-backend `message`; do not retry automatically.
+Confirm the `client_secret` with Stripe Elements. Never submit a client amount,
+secret, or card data to the purchase endpoint.
 
-### Stripe Elements demo boundary
+### `POST /store/purchase`
 
-The Buyer app can mount Stripe Card Elements when
-`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is configured. It creates a Stripe
-PaymentMethod only to validate browser card input before submitting the existing
-dummy purchase request. It does **not** create or confirm a charge: that needs
-a backend endpoint which creates a PaymentIntent, returns its client secret,
-and reconciles the webhook/payment status before fulfillment. Until that
-contract exists, the backend's `payment.provider = "dummy"` remains the source
-of truth for the investor-demo checkout.
+After `stripe.confirmCardPayment` returns `status: "succeeded"`, send:
+
+```json
+{
+  "items": [{ "variant_id": "variant_...", "quantity": 1 }],
+  "region_id": "reg_01M5J0TH63KAP4HJN34ERGDC5N",
+  "payment_intent_id": "pi_..."
+}
+```
+
+The backend retrieves the PaymentIntent from Stripe and requires a matching
+`succeeded` status, server-calculated amount/currency, Customer, Region, and
+cart fingerprint. It locks Listings, rechecks stock, creates the order, marks
+Listings sold, sets inventory to zero, and creates per-line HQ/lineage records.
+Retrying finalization with the same Intent returns the existing order. Keep the
+cart for `400`, `401`, `409`, Stripe, and network errors.
+
+### Stripe Elements boundary
+
+The Buyer app uses `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; the backend alone
+holds `STRIPE_SECRET_KEY`. In production, missing either key disables payment
+fields and the purchase action. The backend's direct Stripe retrieval is the synchronous
+reconciliation gate. A production Stripe webhook is still required as a
+recovery channel for asynchronous payment events.
+
+In local development only, when neither Stripe key is configured, checkout
+shows **Demo payment mode** and completes a clearly simulated server-validated
+purchase. It uses no card fields, never contacts Stripe, and is disabled in a
+production build.
 
 ## 5. Customer login used by local demo
 

@@ -358,8 +358,10 @@ the HQ intermediary flow.
 
 ### Cart state
 
-- Cart is a small client-side context stored under `pawnpawn-buyer-cart` in
-  `localStorage` after hydration.
+- Cart is a small client-side context stored under
+  `pawnpawn-buyer-cart:<region_id>` in `localStorage` after hydration. Region
+  selection uses `pawn_region_id`: explicit cookie/session choice, then
+  `cf-ipcountry`, then EU/EUR fallback.
 - The cart de-duplicates by `variant.id`; quantity controls do not exist.
 - Each cart row presents seller/store name, product title, display price, and a
   remove action inside the shared elevated-panel treatment.
@@ -388,9 +390,12 @@ the dark gallery palette. Without a key, it renders a safe payment preview and
 does not collect card data. The purchase button uses the same rounded-xl primary
 action as discovery and Product detail.
 
-The display total is derived from Variant prices in the local cart. It is not
-authoritative. Do not add delivery fees, taxes, discounts, or a currency switch
-without backend support.
+The display total is derived from active-region calculated Variant prices and
+uses `en-EU` EUR or `en-IN` INR formatting. It is not authoritative. A missing
+or non-positive regional price displays `Unavailable`, disables Stripe fields
+and the primary action as `Unavailable for Purchase`, and keeps the cart for a
+safe retry after region selection changes. Do not add delivery fees, taxes, or
+discounts without backend support.
 
 ### Authentication and token UX
 
@@ -402,15 +407,20 @@ a demo bridge, not the production authentication design.
 - A missing token blocks submission with an instructional inline error.
 - The token remains only in React state; do not put it in localStorage, URL,
   logs, analytics, or error telemetry.
-- Stripe browser validation creates a PaymentMethod when configured. It must not
-  be described as a charge until a backend PaymentIntent and webhook flow exist.
+- The UI requests a server-priced PaymentIntent, confirms it with Stripe
+  Elements, and shows success only after the backend retrieves the `succeeded`
+  Intent and finalizes the order. Missing Stripe configuration disables payment.
+- In development without Stripe keys, show the explicitly labelled **Demo
+  payment mode** and `Complete Demo Purchase` action. Do not render card fields
+  or imply a real charge; production requires Stripe.
 - A future app should replace this field with buyer sign-in/session management.
 
 ### Submission states
 
 | State | UI response |
 |---|---|
-| Idle | `Pay <total> & Secure Drop` enabled |
+| Idle, valid local total | `Pay <total> & Secure Drop` enabled |
+| Missing/zero regional price | `Unavailable for Purchase` disabled; no payment request |
 | Loading | Button reads `Securing your drop…` and is disabled |
 | Backend error | Inline backend message, for example 401/409; cart is retained |
 | Success | Full success view replaces checkout form |
@@ -429,9 +439,12 @@ have an order-history or tracking route.
 
 ### Data dependency
 
-`POST /store/purchase` with a publishable key, customer Bearer token, and one
-`{ variant_id, quantity: 1 }` record per cart item. Successful checkout changes
-the backend Listing to `SOLD`, inventory to zero, and creates HQ/lineage data.
+Checkout first calls `POST /store/payment-intent` with a publishable key,
+customer Bearer token, native `region_id`, and one `{ variant_id, quantity: 1 }`
+record per cart item. After Stripe confirms the returned client secret, it calls
+`POST /store/purchase` with the same items, Region, and `payment_intent_id`.
+Successful verified checkout changes the backend Listing to `SOLD`, inventory
+to zero, and creates HQ/lineage data.
 
 ## 7. UX states and error handling
 

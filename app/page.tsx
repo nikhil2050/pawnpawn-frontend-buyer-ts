@@ -1,9 +1,15 @@
 import Link from "next/link"
 import { DiscoveryCatalog } from "@/components/discovery-catalog"
 import { getProducts } from "@/lib/medusa"
+import { regionFromCountry, regionIdFor } from "@/lib/regions"
+import { cookies, headers } from "next/headers"
 
 export default async function HomePage() {
-  const products = await getProducts()
+  const cookieStore = await cookies()
+  const requestHeaders = await headers()
+  const selected = cookieStore.get("pawn_region_id")?.value
+  const regionId = selected ? regionIdFor(selected) : regionFromCountry(requestHeaders.get("cf-ipcountry"))
+  const products = await getProducts(regionId)
   const featured = products[0]
 
   return <>

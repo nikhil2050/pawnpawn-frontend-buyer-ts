@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useCart } from "@/components/cart-provider"
+import { RegionSelector } from "@/components/region-selector"
 
 export function Header() {
   const { items } = useCart()
@@ -34,6 +35,7 @@ export function Header() {
       <button type="button" onClick={toggleTheme} aria-label="Toggle theme" className="grid size-9 place-items-center rounded-full border border-theme-border text-theme-primary transition-transform hover:scale-105">
         {isLight ? "◐" : "◑"}
       </button>
+      <RegionSelector />
       <Link href="/checkout" className="flex items-center gap-2 text-theme-primary">Cart <span aria-label={`${items.length} items`} className="grid size-5 place-items-center rounded-full bg-theme-accent text-[10px] font-bold text-theme-base">{items.length}</span></Link>
     </nav>
   </div></header>

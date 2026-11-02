@@ -2,11 +2,17 @@ import { notFound } from "next/navigation"
 import { ListingImage } from "@/components/listing-image"
 import { ProductCard } from "@/components/product-card"
 import { getSeller } from "@/lib/medusa"
+import { regionFromCountry, regionIdFor } from "@/lib/regions"
+import { cookies, headers } from "next/headers"
 
 export default async function SellerPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params
+  const cookieStore = await cookies()
+  const requestHeaders = await headers()
+  const selected = cookieStore.get("pawn_region_id")?.value
+  const regionId = selected ? regionIdFor(selected) : regionFromCountry(requestHeaders.get("cf-ipcountry"))
   let data
-  try { data = await getSeller(handle) } catch { notFound() }
+  try { data = await getSeller(handle, regionId) } catch { notFound() }
   const { seller, products, archive } = data
 
   return <section className="page-container py-12 sm:py-16 lg:py-20">
