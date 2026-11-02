@@ -377,13 +377,16 @@ Do not show an empty payment form or totals.
 Secure handover
 Display total
 HQ promise: held → received → authenticated/certified → dispatched
-Buyer session token field (MVP demo only)
-Secure purchase CTA
+Stripe card surface or offline-safe payment preview
+Demo Session Manager with advanced manual token entry
+Pay total & Secure Drop CTA
 ```
 
-The checkout form is an elevated panel. Its token input uses a lime focus border
-and the purchase button uses the same rounded-xl primary action as discovery
-and Product detail.
+The checkout form is an elevated panel. With a Stripe publishable key it renders
+hosted Card Number, Expiry, and CVC Elements plus a postal-code input, all using
+the dark gallery palette. Without a key, it renders a safe payment preview and
+does not collect card data. The purchase button uses the same rounded-xl primary
+action as discovery and Product detail.
 
 The display total is derived from Variant prices in the local cart. It is not
 authoritative. Do not add delivery fees, taxes, discounts, or a currency switch
@@ -391,19 +394,23 @@ without backend support.
 
 ### Authentication and token UX
 
-The current MVP accepts a customer JWT through a token field. This is a demo
-bridge, not the production authentication design.
+The current MVP uses a Demo Session Manager that calls development-only
+`POST /api/demo-session`; its server side obtains a local Customer JWT through
+Medusa emailpass, with manual token entry under an Advanced disclosure. This is
+a demo bridge, not the production authentication design.
 
 - A missing token blocks submission with an instructional inline error.
 - The token remains only in React state; do not put it in localStorage, URL,
   logs, analytics, or error telemetry.
+- Stripe browser validation creates a PaymentMethod when configured. It must not
+  be described as a charge until a backend PaymentIntent and webhook flow exist.
 - A future app should replace this field with buyer sign-in/session management.
 
 ### Submission states
 
 | State | UI response |
 |---|---|
-| Idle | `Secure purchase` enabled |
+| Idle | `Pay <total> & Secure Drop` enabled |
 | Loading | Button reads `Securing your drop…` and is disabled |
 | Backend error | Inline backend message, for example 401/409; cart is retained |
 | Success | Full success view replaces checkout form |

@@ -125,6 +125,17 @@ marks the Listing sold, sets stock to zero, and creates line-item HQ/lineage
 records. Handle `401`, `409`, and validation `400` responses by showing the
 backend `message`; do not retry automatically.
 
+### Stripe Elements demo boundary
+
+The Buyer app can mount Stripe Card Elements when
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is configured. It creates a Stripe
+PaymentMethod only to validate browser card input before submitting the existing
+dummy purchase request. It does **not** create or confirm a charge: that needs
+a backend endpoint which creates a PaymentIntent, returns its client secret,
+and reconciles the webhook/payment status before fulfillment. Until that
+contract exists, the backend's `payment.provider = "dummy"` remains the source
+of truth for the investor-demo checkout.
+
 ## 5. Customer login used by local demo
 
 ### `POST /auth/customer/emailpass`
@@ -133,9 +144,12 @@ backend `message`; do not retry automatically.
 { "email": "sarah.johnson@gmail.com", "password": "buyer1234" }
 ```
 
-Response includes `{ "token": "..." }`. The current checkout deliberately
-holds this token in React state only. A production app should replace the paste
-field with a customer auth/session experience.
+Response includes `{ "token": "..." }`. Checkout holds this token in React
+state only. In development, the Demo Session Manager calls the local Next route
+`POST /api/demo-session`; that route calls emailpass with server-only demo
+credentials and returns a fresh token. It is disabled in production, never
+embeds a JWT or password in browser code, and manual token entry remains in an
+advanced disclosure.
 
 ## 6. CORS requirements
 

@@ -57,7 +57,13 @@ Product is published.
      -d '{"email":"sarah.johnson@gmail.com","password":"buyer1234"}'
    ```
 
-7. Paste the returned `token` into checkout and select **Secure purchase**.
+7. Select **Auto-login with Demo Customer Token**. The development-only Next
+   route acquires the configured server-side demo Customer token; Advanced
+   manual token entry remains available for a different local Customer session.
+8. If `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set, enter Stripe test card
+   details to validate the Stripe Elements surface. This does not charge a card:
+   the backend currently has no PaymentIntent endpoint.
+9. Select **Pay <total> & Secure Drop**.
 8. Show the successful PawnPawn HQ handover sequence.
 
 The dummy checkout mutates the local backend: it makes the Listing `SOLD` and
@@ -85,8 +91,9 @@ hard-code replacement colors in page or component files.
 - [ ] Seller profile shows public profile and active inventory.
 - [ ] Product attributes and lineage timeline render without buyer PII.
 - [ ] Cart allows each Variant only once and survives a client refresh.
-- [ ] Checkout without a token explains the requirement.
-- [ ] Checkout with a seeded customer token returns the HQ success page.
+- [ ] Checkout without a Demo Session/token explains the requirement.
+- [ ] Demo Session obtains a fresh local Customer token and checkout returns the HQ success page.
+- [ ] Stripe test card validation works when a valid publishable key is configured; offline preview collects no card data when absent.
 - [ ] Backend confirms SOLD Listing, zero stock, one HQ row, and one lineage row.
 
 ## 6. Troubleshooting
@@ -94,7 +101,7 @@ hard-code replacement colors in page or component files.
 | Symptom | Likely cause | Resolution |
 |---|---|---|
 | Empty discovery feed | Backend stopped, no `AVAILABLE` Listing, wrong URL/key | Check `/health`, backend seed, Listing review state, `.env.local` |
-| Checkout 401 | Missing/expired customer JWT | Log in again and paste the returned token |
+| Checkout 401 | Missing/expired customer JWT | Start a new Demo Session or use Advanced manual token entry |
 | Checkout 409 | Piece sold or no longer stocked | Refresh discovery; choose another available drop |
 | Checkout CORS failure | Backend CORS missing port 3000 or auth headers | Update backend Store CORS settings, restart backend |
 | Seller/product 404 | Handle/ID absent from public catalog | Use an active seller and an available Product ID |

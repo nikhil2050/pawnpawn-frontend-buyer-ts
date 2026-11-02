@@ -57,6 +57,23 @@ Product metadata.
 | Public key default | `pk_a6c505481cec4bc82dd9cfcbee017cac5ca0affd31ae65ee78861dcd46bc30e4` |
 | Validation | `npm run lint`, `npm run build` |
 
+### Local demo credentials
+
+These accounts are for local development only. Buyer authentication is not yet
+embedded in the storefront; use the credentials with the Medusa auth route when
+the checkout demo requests a Customer token.
+
+| Role | Email | Password | Notes |
+|---|---|---|---|
+| Buyer | `sarah.johnson@gmail.com` | `buyer1234` | Sample buyer; reseller profile is disabled in the original-seller MVP |
+| Buyer | `mike.chen@outlook.com` | `buyer1234` | Sample buyer |
+| Buyer | `emily.rodriguez@yahoo.com` | `buyer1234` | Sample buyer |
+| Buyer | `james.wilson@icloud.com` | `buyer1234` | Sample buyer |
+| Buyer | `olivia.martinez@gmail.com` | `buyer1234` | Sample buyer |
+
+The Seller Studio demo login is documented in the Seller repository context:
+`emma.watson@pawnpawn.demo` / `seller1234` (`@emmawatson`, Emma Watson Archive).
+
 `NEXT_PUBLIC_*` values are browser-visible. They must contain only the public
 backend URL and Medusa publishable key; never put a buyer token or secret there.
 
@@ -183,9 +200,19 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 
 - Reads local cart entries from `localStorage` after hydration.
 - Sends only `{ variant_id, quantity: 1 }` per item to `POST /store/purchase`.
-- Requires a customer JWT entered for the local demo; it is held only React
-  state, never persisted.
+- Uses Stripe Card Elements for Card Number, Expiry, CVC, and postal code when
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is configured. The Element theme uses the
+  dark gallery colors; missing keys show a no-card-data offline preview.
+- The Demo Session Manager calls development-only `POST /api/demo-session`,
+  which obtains a fresh local buyer token server-side through
+  `/auth/customer/emailpass`. Demo credentials never reach the browser; tokens
+  are held only in React state and are never persisted.
+- Current Stripe integration validates card input by creating a PaymentMethod.
+  It cannot capture a payment because the backend has no PaymentIntent/client
+  secret endpoint. The dummy backend purchase remains the authoritative demo
+  payment state until that endpoint and webhook reconciliation exist.
 - On `201`, renders the secure-payment/HQ authentication success journey.
+- Clears the temporary cart only after `POST /store/purchase` succeeds.
 - The local cart de-duplicates by Variant ID and has no quantity controls. Its
   displayed total is informational; the purchase endpoint remains authoritative.
 - Server decides currency, price, availability, reservation, inventory, and
@@ -261,8 +288,11 @@ operations or buyer identity data.
 |---|---|---|
 | `Discover drops` | Link to `/` | Returns to Discovery when the cart is empty (local). |
 | `Remove` | Button | Removes that Variant from the temporary cart (local). |
-| Buyer session token | Input | Holds a local-demo Customer JWT in React state only; it is never persisted. |
-| `Secure purchase` | Form submit | Sends `{ variant_id, quantity: 1 }` per cart item to `POST /store/purchase` with the publishable key and Bearer token. The server owns price, stock, order, payment placeholder, HQ fulfillment, and lineage. |
+| Stripe card fields | Hosted Stripe Elements | Collect Card Number, Expiry, and CVC only when a Stripe publishable key exists; browser validation creates a PaymentMethod but does not capture payment. |
+| Postal code | Input | Supplies postal code only to Stripe browser validation; it is not persisted or sent to Medusa. |
+| `Auto-login with Demo Customer Token` | Button | Calls development-only `POST /api/demo-session`; it obtains a fresh Customer JWT server-side, holds it in React state, and never persists it. |
+| Advanced manual token | Disclosure/input | Allows a live local Medusa Customer token in React state for API testing. |
+| `Pay <total> & Secure Drop` | Form submit | Validates Stripe Elements when configured, then sends `{ variant_id, quantity: 1 }` per cart item to `POST /store/purchase`. On success, clears the cart and shows HQ confirmation. |
 | `Explore more drops` | Link after success | Returns to Discovery after the HQ processing confirmation (local). |
 
 ### Control implementation rule
@@ -298,7 +328,8 @@ specification.
 - [x] Product attributes, Variant price, local one-of-one cart, and lineage UI.
 - [x] Amazon-style conversion Product detail: 60/40 sticky gallery/Buy Box,
   verified Seller, one-of-one HQ state, trust checklist, and below-fold dossier.
-- [x] Protected dummy checkout request and HQ success screen.
+- [x] Stripe Elements card-validation surface, offline-safe payment preview,
+  Demo Session Manager, protected dummy purchase request, and HQ success screen.
 - [x] Tailwind CSS design-system configuration backed by four core CSS theme
   variables, with a persisted header theme-toggle simulation.
 - [x] Shared token-backed page container, elevated panel, and primary action
@@ -309,8 +340,8 @@ specification.
   validated Next.js webpack mode).
 - [ ] Pending — Backend live smoke test: start Medusa, approve a seller Listing,
   and run the complete browse → cart → checkout journey with a seeded buyer.
-- [ ] Pending — Buyer authentication UI/session management; MVP currently accepts
-  an explicitly pasted local customer token for checkout.
+- [ ] Pending — Production Customer authentication/session management and a
+  server-side Stripe PaymentIntent plus webhook reconciliation for live charges.
 - [ ] Pending — Native public product-detail endpoint for sold archive links.
 - [ ] Planned — Backend-powered catalog facets, order tracking, certificates,
   saved collections, and payment provider UI.
@@ -322,8 +353,9 @@ specification.
 2. Start this app on port `3000`.
 3. Show discovery card → celebrity profile → product provenance timeline.
 4. Add the only Variant to cart.
-5. Authenticate a seeded buyer through Medusa, paste the token at checkout, and
-   secure the purchase.
+5. Select `Auto-login with Demo Customer Token` or use Advanced manual token
+   entry. If Stripe is configured, use Stripe test details for browser card
+   validation, then secure the purchase.
 6. Confirm success view describes HQ authentication and dispatch.
 7. In backend/Admin, confirm Listing is `SOLD`, inventory is zero, and exactly
    one HQ fulfillment and lineage entry exist for that order line.

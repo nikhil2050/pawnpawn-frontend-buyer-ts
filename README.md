@@ -15,9 +15,13 @@ npm run dev
 Open `http://localhost:3000`. The Medusa backend must run at `http://localhost:9000`.
 
 The checkout uses `POST /store/purchase`, which requires a customer session token.
-For local demonstration, sign in through Medusa's customer auth endpoint and paste
-the resulting token into the checkout field. The public discovery, profile, and
-product pages use the configured publishable API key.
+For a local investor demo, use **Auto-login with Demo Customer Token**; its
+development-only server route obtains a fresh token without exposing demo
+credentials in browser code. Advanced manual token entry remains available.
+Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to enable Stripe Elements card
+validation. The current backend has no PaymentIntent endpoint, so this does not
+capture a live payment. The public discovery, profile, and product pages use the
+configured publishable API key.
 
 ## API contracts
 
