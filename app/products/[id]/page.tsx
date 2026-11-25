@@ -25,7 +25,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     imageFor(product),
   ].filter((image): image is string => Boolean(image))))
   const condition = product.marketplace_listing?.item_condition ?? product.metadata?.item_condition ?? "One of one"
-  const available = product.marketplace_listing?.listing_status !== "SOLD" && Boolean(variant?.calculated_price?.calculated_amount && variant.calculated_price.calculated_amount > 0)
 
   return <section className="page-container py-10 md:py-14">
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
@@ -45,10 +44,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <h1 className="mt-5 font-display text-[clamp(2.7rem,4vw,4.4rem)] leading-[.9] tracking-editorial">{product.title}</h1>
         <p className="mt-6 font-display text-4xl tracking-[-0.04em]">{priceFor(product)}</p>
         <span className="mt-3 inline-flex rounded-full border border-theme-border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.1em] text-theme-primary">{condition}</span>
-
-        <div className={`mt-6 rounded-xl border px-4 py-3 text-sm ${available ? "border-theme-accent text-theme-accent" : "border-theme-border text-theme-editorial"}`}>
-          {available ? "Verified 1-of-1 Item in PawnPawn HQ" : "This piece is in the sold closet"}
-        </div>
 
         <ul className="mt-6 space-y-3 border-y border-theme-border py-5 text-sm text-theme-muted">
           <li><span className="mr-3 text-theme-accent">✓</span>Authenticated &amp; Certified by PawnPawn HQ</li>

@@ -40,7 +40,7 @@ Prefer `border-white/10` hairlines and generous `py-24` / `space-y-12` rhythm.
 
 | This app owns | Backend owns |
 |---|---|
-| Discovery UI, seller/product views, provenance presentation, local cart, checkout request UI | Medusa Products/Variants/prices, Seller/Listing mapping, availability, stock, orders, payment placeholder, HQ fulfillment, lineage |
+| Discovery UI, seller/product views, provenance presentation, local cart, checkout request UI | Medusa Products/Variants/prices, Seller/Listing mapping, availability, stock, server-priced Stripe PaymentIntents, orders, HQ fulfillment, lineage |
 
 **Source of truth:** custom backend `listing` records map `listing.product_id`
 to `listing.seller_id`. Do not infer seller ownership or listing lifecycle from
@@ -53,15 +53,15 @@ Product metadata.
 | Framework | Next.js 16.4.3, React 19, TypeScript, App Router |
 | Buyer URL | `http://localhost:3000` |
 | Backend URL | `http://localhost:9000` (configurable) |
-| Environment | `NEXT_PUBLIC_MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` |
+| Environment | `NEXT_PUBLIC_MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SELLER_STUDIO_URL` |
 | Public key default | `pk_a6c505481cec4bc82dd9cfcbee017cac5ca0affd31ae65ee78861dcd46bc30e4` |
 | Validation | `npm run lint`, `npm run build` |
 
 ### Local demo credentials
 
-These accounts are for local development only. Buyer authentication is not yet
-embedded in the storefront; use the credentials with the Medusa auth route when
-the checkout demo requests a Customer token.
+These accounts are for local development only. The `/login` screen uses the
+same Medusa Customer email/password route and keeps its JWT only in React
+memory for the current tab.
 
 | Role | Email | Password | Notes |
 |---|---|---|---|
@@ -114,6 +114,7 @@ app/
   sellers/[handle]/page.tsx   Public seller profile and sold archive
   products/[id]/page.tsx      Product detail and ownership chain
   checkout/page.tsx           Cart checkout shell
+  login/page.tsx              Unified password login
   globals.css                 Premium responsive design system
   loading.tsx                 Discovery loading skeleton
   products/[id]/loading.tsx   Product loading skeleton
@@ -121,7 +122,9 @@ app/
 components/
   add-to-cart.tsx             One-Variant collection action and checkout link
   cart-provider.tsx           Browser-only temporary cart
+  auth-session.tsx            Current-tab Customer token and derived role
   checkout-client.tsx         Protected checkout interaction
+  login-form.tsx              Password sign-in and role routing
   discovery-catalog.tsx       Client search and native-category filter controls
   header.tsx                  Sticky navigation, theme simulation, cart count
   listing-image.tsx           External image failure fallback
@@ -187,8 +190,8 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 - Uses a 60/40 desktop split: a sticky thumbnail gallery on the left and an
   elevated sticky Buy Box on the right. The Buy Box contains the verified Seller
   link, currency-formatted first-Variant price, uppercase condition tag,
-  `Verified 1-of-1 Item in PawnPawn HQ` state, security checklist, and
-  electric-lime `Add to collection` action for the first/only Variant.
+  security checklist, and electric-lime `Add to collection` action for the
+  first/only Variant.
 - A below-the-fold Item dossier contains expandable specifications/material
   notes, condition/authentication detail, and the buyer-safe ownership chain.
 - Buyers can add one Variant to the local cart. A sold Listing cannot be added.
@@ -205,10 +208,6 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
 - Uses Stripe Card Elements for Card Number, Expiry, CVC, and postal code when
   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is configured. The Element theme uses the
   dark gallery colors; missing keys show a no-card-data offline preview.
-- The Demo Session Manager calls development-only `POST /api/demo-session`,
-  which obtains a fresh local buyer token server-side through
-  `/auth/customer/emailpass`. Demo credentials never reach the browser; tokens
-  are held only in React state and are never persisted.
 - The browser never sends a price or raw card data to Medusa. The backend resolves
   the native Medusa Region price, creates the PaymentIntent, and verifies its
   `succeeded` status, amount, currency, buyer, Region, and item fingerprint
@@ -227,6 +226,20 @@ revalidation (`revalidate: 0`) so demos reflect Admin decisions immediately.
   resulting order. Client total is display-only.
 - Checkout rows and the payment form use elevated panels; token input focus and
   action controls use the same rounded-xl and lime focus/CTA treatment as Product.
+
+### 4.5 Unified password login `/login`
+
+- One Email/Password form calls `POST /auth/customer/emailpass`; there is no
+  buyer/seller role picker.
+- It uses authenticated `GET /store/seller/me` to derive access. `200` opens
+  `${NEXT_PUBLIC_SELLER_STUDIO_URL}/studio`; `403`/`404` returns the buyer to
+  Discovery.
+- Buyer and Seller Studio run on separate origins. The bearer token is never
+  put in a URL or browser storage; Seller Studio authenticates independently if
+  it has no session. Its `/studio` alias redirects to the dashboard.
+- `PRO_RESELLER` has no active MVP route or account type. Deactivated reseller
+  profiles resolve as buyers until a separate reseller authorization model is
+  introduced.
 
 ## 5. Marketplace lifecycle shown to buyers
 
@@ -255,10 +268,10 @@ operations or buyer identity data.
 |---|---|---|
 | `pawnpawn` wordmark | Link to `/` | Returns to Discovery (local). |
 | `Drops` | Link to `/#drops` | Jumps to the live drop feed (local anchor). |
-| `How it works` | Link to `/#how-it-works` | Jumps to the HQ trust/value section (local anchor). |
 | Theme toggle | Button | Changes presentation-only theme variables and stores the preference under `pawnpawn-theme`; it does not alter marketplace data. |
 | Region selector | Select | Stores the selected native EU or India Medusa Region ID as `pawn_region_id`, reloads the server-rendered catalog, and scopes the cart to that region. |
-| `Cart` + count | Link to `/checkout` | Opens the local one-of-one cart and checkout view. |
+| `Sign in` / `Sign out` | Link / Button | `Sign in` opens `/login` to authenticate the Customer; `Sign out` clears the in-memory Customer session and temporary cart, then returns to Discovery (local). No buyer token is stored in browser storage. |
+| `Cart` + count | Link to `/checkout` | Visible only when authenticated. Opens the local one-of-one cart and checkout view. |
 
 ### Discovery `/`
 
@@ -288,8 +301,8 @@ operations or buyer identity data.
 | Seller name/handle | Link to `/sellers/:handle` | Opens the public Seller profile (local). |
 | Gallery thumbnails | Buttons | Switch the active product image; broken images use the branded fallback (local). |
 | Product specifics, condition, authentication, ownership chain | Disclosure/accordion controls | Expand buyer-safe details and the public lineage timeline (local). |
-| `Add to collection` | Button | Adds the first/only available Variant with a non-zero calculated active-region price at quantity `1`; sold/unavailable items cannot be added. |
-| `Continue to secure checkout` | Link to `/checkout` | Opens checkout after a successful add-to-cart action (local). |
+| `Add to collection` / `Sign in to add to collection` | Button | Adds the first/only available Variant with a non-zero calculated active-region price at quantity `1`; sold/unavailable items cannot be added. Requires a Customer session — unauthenticated clicks redirect to `/login` and the button is disabled until signed in. |
+| `Continue to secure checkout` / `Sign in to checkout` | Link | Shown after adding to cart. `Continue to secure checkout` opens `/checkout` only when authenticated; `Sign in to checkout` opens `/login` when not authenticated (local navigation, checkout requires a Customer session). |
 
 ### Checkout `/checkout`
 
@@ -299,10 +312,15 @@ operations or buyer identity data.
 | `Remove` | Button | Removes that Variant from the temporary cart (local). |
 | Stripe card fields | Hosted Stripe Elements | Collect Card Number, Expiry, and CVC only when Stripe is configured. `confirmCardPayment` confirms the server-created PaymentIntent; Medusa never receives raw card data. |
 | Postal code | Input | Supplies postal code only to Stripe during confirmation; it is not persisted by Medusa. |
-| `Auto-login with Demo Customer Token` | Button | Calls development-only `POST /api/demo-session`; it obtains a fresh Customer JWT server-side, holds it in React state, and never persists it. |
-| Advanced manual token | Disclosure/input | Allows a live local Medusa Customer token in React state for API testing. |
 | `Pay <total> & Secure Drop` | Form submit | Requests a server-priced PaymentIntent, calls Stripe `confirmCardPayment`, then submits `{ items, region_id, payment_intent_id }` to `POST /store/purchase`. It is disabled for a missing/zero total or missing Stripe configuration. On success, clears the cart and shows HQ confirmation. |
 | `Explore more drops` | Link after success | Returns to Discovery after the HQ processing confirmation (local). |
+
+### Login `/login`
+
+| Control | Action | Effect |
+|---|---|---|
+| Email / Password | Inputs | Collect Customer credentials only for Medusa sign-in. |
+| `Sign in` | Form submit | Authenticates the Customer, derives Seller access using `/store/seller/me`, then routes Buyer to `/` or Seller to separate Seller Studio `/studio`; no token is placed in a URL or browser storage. |
 
 ### Control implementation rule
 
@@ -323,6 +341,8 @@ For the complete checkout sequence, see [CHECKOUT_WORKFLOW.md](./CHECKOUT_WORKFL
 | `GET /store/products/:id/lineage` | Public ownership/provenance history | Publishable key |
 | `POST /store/payment-intent` | Server-priced Stripe PaymentIntent | Publishable key + customer Bearer token |
 | `POST /store/purchase` | MVP one-of-one checkout | Publishable key + customer Bearer token |
+| `POST /auth/customer/emailpass` | Unified password login | Public auth route |
+| `GET /store/seller/me` | Derived Seller role after login | Publishable key + customer Bearer token |
 
 See [API.md](./API.md) for payload expectations and errors.
 See [BUYER_UI_UX.md](./BUYER_UI_UX.md) for the complete buyer screen and UX
@@ -342,6 +362,8 @@ specification.
   verified Seller, one-of-one HQ state, trust checklist, and below-fold dossier.
 - [x] Server-priced Stripe PaymentIntent checkout, Stripe confirmation, Demo
   Session Manager, protected purchase finalization, and HQ success screen.
+- [x] Unified password login routes Buyers to Discovery and linked Sellers to
+  Seller Studio without a role picker or token URL.
 - [x] Checkout contract test verifies Intent creation, card confirmation, final
   `payment_intent_id` submission, and post-success cart clearing.
 - [x] Tailwind CSS design-system configuration backed by four core CSS theme
@@ -354,8 +376,9 @@ specification.
   validated Next.js webpack mode).
 - [ ] Pending — Backend live smoke test: start Medusa, approve a seller Listing,
   and run the complete browse → cart → checkout journey with a seeded buyer.
-- [ ] Pending — Production Customer authentication/session management, durable
-  inventory reservation/outbox handling, and Stripe webhook reconciliation.
+- [ ] Pending — Production Customer SSO/session management and durable
+  inventory reservation/outbox handling. Signed Stripe webhook recovery is
+  implemented by the backend.
 - [ ] Pending — Native public product-detail endpoint for sold archive links.
 - [ ] Planned — Backend-powered catalog facets, order tracking, certificates,
   saved collections, and payment provider UI.
@@ -367,9 +390,7 @@ specification.
 2. Start this app on port `3000`.
 3. Show discovery card → celebrity profile → product provenance timeline.
 4. Add the only Variant to cart.
-5. Select `Auto-login with Demo Customer Token` or use Advanced manual token
-   entry. If Stripe is configured, use Stripe test details for browser card
-   validation, then secure the purchase.
+5. Sign in at `/login` with a demo buyer credential (for example `sarah.johnson@gmail.com` / `buyer1234`). If Stripe is configured, use Stripe test details for browser card validation, then secure the purchase.
 6. Confirm success view describes HQ authentication and dispatch.
 7. In backend/Admin, confirm Listing is `SOLD`, inventory is zero, and exactly
    one HQ fulfillment and lineage entry exist for that order line.

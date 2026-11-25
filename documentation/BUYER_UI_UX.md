@@ -47,6 +47,14 @@ The header has a translucent dark background with blur and a bottom hairline.
 On narrow screens, only the cart remains visible beside the wordmark; in-page
 links are hidden to preserve space.
 
+### Unified password login
+
+`/login` is the only buyer-facing authentication entry point. It uses Email and
+Password, then derives the account role through `GET /store/seller/me` instead
+of requiring a Buyer/Seller selector. Buyers return to Discovery; linked
+celebrity Sellers open the Seller Studio `/studio` alias. The separate apps do
+not share a bearer token through URLs or browser storage.
+
 ### Footer
 
 The footer is intentionally minimal: a single brand/provenance statement. It
@@ -296,7 +304,7 @@ easy to reach.
 | Title | Large serif hierarchy inside the Buy Box |
 | Price | Uses the first Variant’s Medusa price; formatted according to currency |
 | Condition | Bordered condition pill from Listing/item metadata |
-| Stock | `Verified 1-of-1 Item in PawnPawn HQ` when the first Variant is purchasable; otherwise sold state |
+| Stock | Accent border indicates availability; sold state shows `This piece is in the sold closet` |
 | Value checklist | Authenticated & Certified by PawnPawn HQ, Insured Global Dispatch, Immutable Ownership Chain (Lineage Verified) |
 | Add to collection | Full-width electric-lime `rounded-xl` action; adds the first/only Variant to cart |
 | Added state | Primary label confirms the add and exposes full-width secure checkout action |
@@ -379,16 +387,15 @@ Do not show an empty payment form or totals.
 Secure handover
 Display total
 HQ promise: held → received → authenticated/certified → dispatched
-Stripe card surface or offline-safe payment preview
-Demo Session Manager with advanced manual token entry
+Stripe card surface or development-only Demo payment mode
 Pay total & Secure Drop CTA
 ```
 
 The checkout form is an elevated panel. With a Stripe publishable key it renders
 hosted Card Number, Expiry, and CVC Elements plus a postal-code input, all using
-the dark gallery palette. Without a key, it renders a safe payment preview and
-does not collect card data. The purchase button uses the same rounded-xl primary
-action as discovery and Product detail.
+the dark gallery palette. In development without a key it renders explicitly
+labelled Demo payment mode and does not collect card data. The purchase button
+uses the same rounded-xl primary action as discovery and Product detail.
 
 The display total is derived from active-region calculated Variant prices and
 uses `en-EU` EUR or `en-IN` INR formatting. It is not authoritative. A missing
@@ -399,10 +406,9 @@ discounts without backend support.
 
 ### Authentication and token UX
 
-The current MVP uses a Demo Session Manager that calls development-only
-`POST /api/demo-session`; its server side obtains a local Customer JWT through
-Medusa emailpass, with manual token entry under an Advanced disclosure. This is
-a demo bridge, not the production authentication design.
+`/login` is the normal Email/Password entry and derives Buyer versus Seller
+access through the Seller profile endpoint. The current-tab token is reused by
+checkout.
 
 - A missing token blocks submission with an instructional inline error.
 - The token remains only in React state; do not put it in localStorage, URL,
@@ -413,7 +419,8 @@ a demo bridge, not the production authentication design.
 - In development without Stripe keys, show the explicitly labelled **Demo
   payment mode** and `Complete Demo Purchase` action. Do not render card fields
   or imply a real charge; production requires Stripe.
-- A future app should replace this field with buyer sign-in/session management.
+- Production SSO/cross-origin session sharing remains a separate backend/auth
+  capability; the Buyer app never sends a token to Seller Studio through a URL.
 
 ### Submission states
 

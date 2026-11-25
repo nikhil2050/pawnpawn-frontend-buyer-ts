@@ -1,13 +1,15 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripe } from "@stripe/stripe-js"
 import { useCart } from "@/components/cart-provider"
 import { backendUrl, priceFor } from "@/lib/medusa"
 import { formatRegionalPrice, isValidRegionalPrice } from "@/lib/regions"
 import { useRegion } from "@/components/region-provider"
+import { useBuyerSession } from "@/components/auth-session"
 
 const medusaKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? "pk_a6c505481cec4bc82dd9cfcbee017cac5ca0affd31ae65ee78861dcd46bc30e4"
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim()
@@ -47,8 +49,13 @@ function CheckoutContent({ stripeEnabled, demoPaymentEnabled }: { stripeEnabled:
   const { region } = useRegion()
   const stripe = useStripe()
   const elements = useElements()
-  const [token, setToken] = useState("")
-  const [demoLoading, setDemoLoading] = useState(false)
+  const { token, startSession, clearSession } = useBuyerSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!token.trim()) router.replace("/login")
+  }, [token, router])
+
   const [status, setStatus] = useState<CheckoutStatus>("idle")
   const [message, setMessage] = useState("")
   const [postalCode, setPostalCode] = useState("")
@@ -64,25 +71,11 @@ function CheckoutContent({ stripeEnabled, demoPaymentEnabled }: { stripeEnabled:
   const purchaseable = hasRegionalPrice && (stripeEnabled || demoPaymentEnabled)
   const formattedTotal = formatRegionalPrice(serverAmount ?? total, region.currencyCode)
 
-  async function autoLogin() {
-    setDemoLoading(true); setMessage("")
-    try {
-      // Local-investor helper only. See documentation/AI_CONTEXT.md#checkout.
-      // The short-lived JWT is returned directly to React state and never stored.
-      const response = await fetch("/api/demo-session", { method: "POST" })
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok || !payload.token) throw new Error(payload.message ?? "Demo login could not start.")
-      setToken(payload.token); setMessage("Demo buyer session is ready for this checkout.")
-    } catch (error) {
-      setStatus("error"); setMessage(error instanceof Error ? error.message : "Demo login could not start.")
-    } finally { setDemoLoading(false) }
-  }
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!hasRegionalPrice) { setStatus("error"); setMessage("Item Unavailable in Region. Select a region where every item has a valid price."); return }
     if (!stripeEnabled && !demoPaymentEnabled) { setStatus("error"); setMessage("Stripe checkout is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY and the backend STRIPE_SECRET_KEY."); return }
-    if (!token.trim()) { setStatus("error"); setMessage("Start a Demo Session or enter a Customer session token before checkout."); return }
+    if (!token.trim()) { setStatus("error"); setMessage("Sign in at /login or enter a Customer session token before checkout."); return }
     setStatus("loading"); setMessage("")
     try {
       // The server resolves the Price Set total and creates an Intent before
@@ -97,6 +90,7 @@ function CheckoutContent({ stripeEnabled, demoPaymentEnabled }: { stripeEnabled:
           idempotency_key: checkoutAttemptId,
         }),
       })
+      if (intentResponse.status === 401) { clearSession(); router.replace("/login"); return }
       const intentPayload = await intentResponse.json().catch(() => ({})) as PaymentIntentPayload
       const payment = intentPayload.payment
       if (!intentResponse.ok || !payment?.payment_intent_id || !payment.amount || payment.amount <= 0) {
@@ -128,19 +122,21 @@ function CheckoutContent({ stripeEnabled, demoPaymentEnabled }: { stripeEnabled:
           payment_intent_id: payment.payment_intent_id,
         }),
       })
+      if (response.status === 401) { clearSession(); router.replace("/login"); return }
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(payload.message ?? "Checkout could not be completed.")
       clear(); setStatus("success")
       setMessage(`Order ${payload.order?.display_id ?? "confirmed"} is secure. Your piece now travels to PawnPawn HQ for authentication, certification, and dispatch.`)
     } catch (error) {
-      setStatus("error"); setMessage(error instanceof Error ? error.message : "Checkout could not be completed.")
+      setStatus("error")
+      setMessage(error instanceof Error ? error.message : "Checkout could not be completed.")
     }
   }
 
   if (status === "success") return <CheckoutSuccess message={message} />
 
   return <section className="page-container grid gap-8 py-16 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)] lg:gap-12 lg:py-20"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-accent">Your collection</p><h1 className="mt-3 font-display text-[clamp(3.4rem,6vw,5rem)] leading-[.9] tracking-editorial">Checkout</h1>{items.length === 0 ? <div className="elevated-panel mt-10 px-6 py-14 text-center"><p className="font-display text-3xl">Your cart is waiting for a story.</p><Link href="/" className="primary-action mt-6">Discover drops</Link></div> : <div className="elevated-panel mt-10 overflow-hidden">{items.map((item) => <article key={item.variant.id} className="grid grid-cols-[1fr_auto] items-center border-b border-theme-border px-5 py-6 last:border-b-0"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-theme-accent">{item.product.seller?.store_name ?? "Celebrity drop"}</span><h2 className="mt-2 font-display text-2xl tracking-[-0.04em]">{item.product.title}</h2><strong className="col-start-2 row-span-2 row-start-1 font-display text-xl">{priceFor(item.product)}</strong><button type="button" onClick={() => remove(item.variant.id)} className="col-start-2 text-xs text-theme-muted transition-colors hover:text-theme-editorial">Remove</button></article>)}</div>}</div>
-    {items.length > 0 && <form className="elevated-panel h-fit p-7 md:p-9" onSubmit={submit}><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-accent">Secure handover · {region.label}</p><h2 className="mt-3 font-display text-5xl tracking-[-0.04em]">{formattedTotal}</h2><p className="mt-4 text-sm leading-6 text-theme-muted">{demoPaymentEnabled ? "Demo payment validates the server-calculated amount. PawnPawn HQ then receives, authenticates, certifies, and dispatches each item." : "Stripe confirms the server-calculated amount. PawnPawn HQ then receives, authenticates, certifies, and dispatches each item."}</p>{!hasRegionalPrice && <p role="alert" className="mt-4 rounded-lg border border-theme-editorial px-3 py-3 text-sm text-theme-editorial">Item Unavailable in Region. A non-zero local price is required before checkout.</p>}<PaymentSurface enabled={hasRegionalPrice} stripeEnabled={stripeEnabled} demoPaymentEnabled={demoPaymentEnabled} postalCode={postalCode} onPostalCodeChange={setPostalCode} /><DemoSessionManager token={token} onAutoLogin={autoLogin} loading={demoLoading} onTokenChange={setToken} /><p className="mt-5 text-xs leading-5 text-theme-muted">{demoPaymentEnabled ? "Development demo payment is simulated and never contacts Stripe." : "Your card is confirmed through Stripe. PawnPawn creates the order only after the backend verifies the succeeded PaymentIntent."}</p>{status === "error" && <p role="alert" className="mt-3 text-xs leading-5 text-theme-editorial">{message}</p>}{status === "idle" && message && <p role="status" className="mt-3 text-xs leading-5 text-theme-accent">{message}</p>}<button className="primary-action mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50" disabled={!purchaseable || status === "loading" || demoLoading}>{status === "loading" ? "Confirming secure payment…" : !hasRegionalPrice ? "Unavailable for Purchase" : demoPaymentEnabled ? `Complete Demo Purchase · ${formattedTotal}` : `Pay ${formattedTotal} & Secure Drop`}</button></form>}
+    {items.length > 0 && <form className="elevated-panel h-fit p-7 md:p-9" onSubmit={submit}><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-accent">Secure handover · {region.label}</p><h2 className="mt-3 font-display text-5xl tracking-[-0.04em]">{formattedTotal}</h2><p className="mt-4 text-sm leading-6 text-theme-muted">{demoPaymentEnabled ? "Demo payment validates the server-calculated amount. PawnPawn HQ then receives, authenticates, certifies, and dispatches each item." : "Stripe confirms the server-calculated amount. PawnPawn HQ then receives, authenticates, certifies, and dispatches each item."}</p>{!hasRegionalPrice && <p role="alert" className="mt-4 rounded-lg border border-theme-editorial px-3 py-3 text-sm text-theme-editorial">Item Unavailable in Region. A non-zero local price is required before checkout.</p>}<PaymentSurface enabled={hasRegionalPrice} stripeEnabled={stripeEnabled} demoPaymentEnabled={demoPaymentEnabled} postalCode={postalCode} onPostalCodeChange={setPostalCode} /><p className="mt-5 text-xs leading-5 text-theme-muted">{demoPaymentEnabled ? "Development demo payment is simulated and never contacts Stripe." : "Your card is confirmed through Stripe. PawnPawn creates the order only after the backend verifies the succeeded PaymentIntent."}</p>{status === "error" && <p role="alert" className="mt-3 text-xs leading-5 text-theme-editorial">{message}</p>}{status === "idle" && message && <p role="status" className="mt-3 text-xs leading-5 text-theme-accent">{message}</p>}<button className="primary-action mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50" disabled={!purchaseable || status === "loading"}>{status === "loading" ? "Confirming secure payment…" : !hasRegionalPrice ? "Unavailable for Purchase" : demoPaymentEnabled ? `Complete Demo Purchase · ${formattedTotal}` : `Pay ${formattedTotal} & Secure Drop`}</button></form>}
   </section>
 }
 
@@ -153,10 +149,6 @@ function PaymentSurface({ enabled, stripeEnabled, demoPaymentEnabled, postalCode
 
 function StripeField({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-theme-muted">{label}<span className="rounded-lg border border-theme-border bg-theme-base px-3 py-[15px] normal-case tracking-normal">{children}</span></label>
-}
-
-function DemoSessionManager({ token, onAutoLogin, loading, onTokenChange }: { token: string; onAutoLogin: () => Promise<void>; loading: boolean; onTokenChange: (value: string) => void }) {
-  return <section className="mt-5 rounded-xl border border-theme-border bg-theme-base p-4"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-theme-accent">Demo Session Manager</p><p className="mt-1 text-xs leading-5 text-theme-muted">Local investor demo only. A Customer token stays in this tab.</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${token ? "bg-theme-accent text-theme-base" : "border border-theme-border text-theme-muted"}`}>{token ? "Ready" : "Required"}</span></div><button type="button" className="secondary-action mt-4 w-full !min-h-11" disabled={loading} onClick={onAutoLogin}>{loading ? "Starting Demo Session…" : "Auto-login with Demo Customer Token"}</button><details className="mt-4 border-t border-theme-border pt-4"><summary className="cursor-pointer text-xs text-theme-muted">Advanced: enter a Customer token manually</summary><label className="mt-3 grid gap-2 text-xs text-theme-muted">Customer session token<input value={token} onChange={(event) => onTokenChange(event.target.value)} className="theme-input rounded-lg border border-theme-border px-3 py-3 text-sm text-theme-primary outline-none focus:border-theme-accent" placeholder="Paste local Medusa customer token" /></label></details></section>
 }
 
 function CheckoutSuccess({ message }: { message: string }) {
