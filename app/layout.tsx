@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { BuyerSessionProvider } from "@/components/auth-session"
 import { CartProvider } from "@/components/cart-provider"
 import { Header } from "@/components/header"
 import { RegionProvider } from "@/components/region-provider"
@@ -16,5 +17,5 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const requestHeaders = await headers()
   const explicitRegion = cookieStore.get("pawn_region_id")?.value
   const initialRegionId = explicitRegion ? regionIdFor(explicitRegion) : regionFromCountry(requestHeaders.get("cf-ipcountry"))
-  return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><body><RegionProvider initialRegionId={initialRegionId}><CartProvider><Header /><main className="min-h-[calc(100vh-132px)]">{children}</main><footer className="border-t border-theme-border py-7 text-xs text-theme-muted"><div className="page-container">PawnPawn · verified stories, passed forward.</div></footer></CartProvider></RegionProvider></body></html>
+  return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><body><BuyerSessionProvider><RegionProvider initialRegionId={initialRegionId}><CartProvider><Header /><main className="min-h-[calc(100vh-132px)]">{children}</main><footer className="border-t border-theme-border py-7 text-xs text-theme-muted"><div className="page-container">PawnPawn · verified stories, passed forward.</div></footer></CartProvider></RegionProvider></BuyerSessionProvider></body></html>
 }

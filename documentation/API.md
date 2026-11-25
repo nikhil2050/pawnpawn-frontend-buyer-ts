@@ -158,15 +158,15 @@ cart for `400`, `401`, `409`, Stripe, and network errors.
 The Buyer app uses `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; the backend alone
 holds `STRIPE_SECRET_KEY`. In production, missing either key disables payment
 fields and the purchase action. The backend's direct Stripe retrieval is the synchronous
-reconciliation gate. A production Stripe webhook is still required as a
-recovery channel for asynchronous payment events.
+ reconciliation gate. A signed backend Stripe webhook supplies recovery for a
+ confirmed payment when a browser disconnects.
 
 In local development only, when neither Stripe key is configured, checkout
 shows **Demo payment mode** and completes a clearly simulated server-validated
 purchase. It uses no card fields, never contacts Stripe, and is disabled in a
 production build.
 
-## 5. Customer login used by local demo
+## 5. Unified password login and local demo
 
 ### `POST /auth/customer/emailpass`
 
@@ -174,12 +174,14 @@ production build.
 { "email": "sarah.johnson@gmail.com", "password": "buyer1234" }
 ```
 
+The `/login` screen submits the same request, then calls authenticated
+`GET /store/seller/me`: a linked Seller opens
+`NEXT_PUBLIC_SELLER_STUDIO_URL/studio`, while a buyer returns to `/`. No role
+picker or URL token is used. The two apps have separate in-memory sessions.
+
 Response includes `{ "token": "..." }`. Checkout holds this token in React
-state only. In development, the Demo Session Manager calls the local Next route
-`POST /api/demo-session`; that route calls emailpass with server-only demo
-credentials and returns a fresh token. It is disabled in production, never
-embeds a JWT or password in browser code, and manual token entry remains in an
-advanced disclosure.
+state only. The `/login` screen submits the same request directly from the
+browser and keeps the JWT in current-tab React state.
 
 ## 6. CORS requirements
 

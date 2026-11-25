@@ -22,6 +22,7 @@ Open `http://localhost:3000`.
 |---|---|---|
 | `NEXT_PUBLIC_MEDUSA_BACKEND_URL` | `http://localhost:9000` | Store API origin |
 | `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` | provided demo key | Public Medusa API key |
+| `NEXT_PUBLIC_SELLER_STUDIO_URL` | `http://localhost:3001` | Seller role-routing destination |
 
 ## 3. Start the backend
 
@@ -53,26 +54,19 @@ Product is published.
    and Sold Closet archive.
 5. Return to the product and discuss the Ownership Chain timeline.
 6. Add the product to Cart, then open `/checkout`.
-7. Obtain a local customer JWT:
+7. Open `/login` and sign in with `sarah.johnson@gmail.com` / `buyer1234`.
+   Buyer accounts return to Discovery. A linked Seller is sent to the separate
+   Seller Studio `/studio` entry, which owns its own session.
 
-   ```bash
-   curl -s -X POST http://localhost:9000/auth/customer/emailpass \
-     -H 'Content-Type: application/json' \
-     -d '{"email":"sarah.johnson@gmail.com","password":"buyer1234"}'
-   ```
-
-8. Select **Auto-login with Demo Customer Token**. The development-only Next
-   route acquires the configured server-side demo Customer token; Advanced
-   manual token entry remains available for a different local Customer session.
-9. Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Buyer app and
+8. Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Buyer app and
    `STRIPE_SECRET_KEY` in the backend to matching Stripe **test** keys. Then
    enter `4242 4242 4242 4242`, any future expiry, any CVC, and a postal code:
    Stripe creates a real test PaymentIntent and the backend finalizes only a
    verified `succeeded` Intent.
-10. Select **Pay <EUR/INR total> & Secure Drop**. If the item has no local
-    price, checkout correctly shows **Unavailable for Purchase** and does not
-    send a payment request.
-11. Show the successful PawnPawn HQ handover sequence.
+9. Select **Pay <EUR/INR total> & Secure Drop**. If the item has no local
+   price, checkout correctly shows **Unavailable for Purchase** and does not
+   send a payment request.
+10. Show the successful PawnPawn HQ handover sequence.
 
 The Stripe test checkout mutates the local backend only after successful payment: it makes the Listing `SOLD` and
 sets inventory to zero. Use a known test Listing or re-seed/reset local data
@@ -103,8 +97,7 @@ hard-code replacement colors in page or component files.
   and uses a separate cart.
 - [ ] Missing or zero regional prices show `Unavailable` and cannot submit
   checkout or Stripe validation.
-- [ ] Checkout without a Demo Session/token explains the requirement.
-- [ ] Demo Session obtains a fresh local Customer token and checkout returns the HQ success page.
+- [ ] `/login` authenticates a buyer and Checkout recognizes the current-tab session.
 - [ ] Stripe test card validation works when a valid publishable key is configured; offline preview collects no card data when absent.
 - [ ] Backend confirms SOLD Listing, zero stock, one HQ row, and one lineage row.
 
@@ -113,7 +106,7 @@ hard-code replacement colors in page or component files.
 | Symptom | Likely cause | Resolution |
 |---|---|---|
 | Empty discovery feed | Backend stopped, no `AVAILABLE` Listing, wrong URL/key | Check `/health`, backend seed, Listing review state, `.env.local` |
-| Checkout 401 | Missing/expired customer JWT | Start a new Demo Session or use Advanced manual token entry |
+| Checkout 401 | Missing/expired customer JWT | Sign in at /login to obtain a fresh Customer token |
 | Checkout 409 | Piece sold or no longer stocked | Refresh discovery; choose another available drop |
 | Checkout CORS failure | Backend CORS missing port 3000 or auth headers | Update backend Store CORS settings, restart backend |
 | Seller/product 404 | Handle/ID absent from public catalog | Use an active seller and an available Product ID |

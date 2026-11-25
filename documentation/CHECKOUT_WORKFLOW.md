@@ -11,7 +11,7 @@ Product detail
   → validate active-region price
   → add Variant once to region-scoped cart
   → checkout displays localized total
-  → obtain Customer JWT
+  → sign in at /login
   → POST /store/payment-intent (server resolves regional total)
   → Stripe confirms the returned client secret
   → POST /store/purchase with succeeded payment_intent_id
@@ -105,24 +105,31 @@ The right panel shows:
 - The explanation that payment is held while PawnPawn HQ receives,
   authenticates, certifies, and dispatches the item.
 - The Stripe card surface when a publishable Stripe key is configured.
-- The Demo Session Manager.
 - The primary `Pay <total> & Secure Drop` action.
 
 If any cart item has no positive price in the active Region, the panel displays
 `Item Unavailable in Region`, hides payment fields, and disables the action as
 `Unavailable for Purchase`. No zero amount is sent to Stripe or Medusa.
 
-## 5. Customer authentication
+## 5. Customer authentication and unified role routing
 
-The backend requires an authenticated Customer for purchase. Without a token,
-the UI displays:
+The backend requires an authenticated Customer for purchase. `/login` provides
+the normal Email/Password entry point. It calls `POST /auth/customer/emailpass`
+and checks `GET /store/seller/me` using the returned token: buyers return to
+Discovery, while a linked Seller opens the Seller Studio `/studio` route.
 
-> Start a Demo Session or enter a Customer session token before checkout.
+The applications run on separate origins, so Seller Studio owns its own
+session. The buyer app never transfers the JWT through a query string,
+cookie, localStorage, or sessionStorage.
 
-This is an authentication prompt, not a payment error. For local demos, click
-`Auto-login with Demo Customer Token`. The development-only
-`POST /api/demo-session` Next route calls Medusa's emailpass authentication on
-the server and returns a short-lived Customer JWT to the current React state.
+Without a current-tab token, checkout displays:
+
+> Sign in at /login or enter a Customer session token before checkout.
+
+This is an authentication prompt, not a payment error. For local demos, sign in at
+`/login` with a demo buyer credential (for example `sarah.johnson@gmail.com` /
+`buyer1234`). The Medusa emailpass route authenticates the Customer and the
+resulting JWT is held only in the current tab's React state.
 
 The local buyer credentials are:
 
@@ -131,7 +138,7 @@ Email:    sarah.johnson@gmail.com
 Password: buyer1234
 ```
 
-The token is never put in localStorage, URLs, logs, or public environment
+The token is never put in localStorage, sessionStorage, URLs, logs, or public environment
 variables. The `Advanced: enter a Customer token manually` disclosure is for
 testing a token obtained from another local Customer session.
 
@@ -236,8 +243,10 @@ are intentionally thin. Both authenticate the Customer and map known
 
 The current lock provider and post-order operations still need a durable
 reservation/outbox transaction for production-scale fault recovery. Stripe
-webhooks are the remaining recovery channel for asynchronous provider events;
-they do not replace synchronous server verification before order creation.
+webhooks now provide signed recovery for `payment_intent.succeeded`; they do
+not replace synchronous server verification before order creation. The webhook
+reconstructs the Customer, Region, and Variant IDs from Stripe metadata and
+uses the same idempotent completion path if the browser disconnects.
 
 ## 10. Post-order lifecycle
 
