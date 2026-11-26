@@ -268,12 +268,18 @@ operations or buyer identity data.
 |---|---|---|
 | `pawnpawn` wordmark | Link to `/` | Returns to Discovery (local). |
 | `Drops` | Link to `/#drops` | Jumps to the live drop feed (local anchor). |
+| `Sell with us` | Link to `/#sell-with-us` | Opens the seller onboarding section on the homepage (local anchor). |
 | Theme toggle | Button | Changes presentation-only theme variables and stores the preference under `pawnpawn-theme`; it does not alter marketplace data. |
 | Region selector | Select | Stores the selected native EU or India Medusa Region ID as `pawn_region_id`, reloads the server-rendered catalog, and scopes the cart to that region. |
 | `Sign in` / `Sign out` | Link / Button | `Sign in` opens `/login` to authenticate the Customer; `Sign out` clears the in-memory Customer session and temporary cart, then returns to Discovery (local). No buyer token is stored in browser storage. |
 | `Cart` + count | Link to `/checkout` | Visible only when authenticated. Opens the local one-of-one cart and checkout view. |
+| Loading spinner | CSS animation | Golden spinner shown at the top of the homepage while content loads (local). |
 
 ### Discovery `/`
+
+| Control | Action | Effect |
+|---|---|---|
+| Premium trust copy | Read-only | Displays `One of one: never restocked`, `Proceeds can support the seller&#39;s chosen charity`, `Every piece authenticated by HQ`, `Sellers verified in person`, and `Insured, tracked delivery` above the hero CTA (local content). |
 
 | Control | Action | Effect |
 |---|---|---|
